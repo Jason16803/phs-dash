@@ -1,6 +1,7 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+/* @import "./styles/tokens.css"; */
+@import "tailwindcss";
+@import "./styles/tokens.css";
+@config "../tailwind.config.cjs";
 
 
 :root{
@@ -9,8 +10,10 @@
   --phs-border: #e5e7eb;
   --phs-text: #111827;
   --phs-muted: #6b7280;
-  --phs-primary: #0b7d7d;
-  --phs-primary-soft: rgba(11,125,125,0.10);
+  /* --phs-primary: #15416b; */
+  --phs-primary-soft: rgba(21,65,107,0.10);
+  --phs-primary-hover: #205a92;
+  --phs-primary-dark: #0f2a45;
   --phs-font: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --phs-radius-lg: 18px;
   --phs-radius-xl: 24px;

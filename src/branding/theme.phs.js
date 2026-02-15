@@ -7,8 +7,14 @@ export const phsTheme = {
     border: "#e5e7eb",
     text: "#111827",
     muted: "#6b7280",
-    primary: "#0b7d7d", // TODO: replace with PHS primary
-    primarySoft: "rgba(11,125,125,0.10)",
+
+    // PHS Brand Blues
+    primary: "#15416b",
+    primarySoft: "rgba(21,65,107,0.10)",
+
+    // (optional but recommended for hovers)
+    primaryHover: "#205a92",
+    primaryDark: "#0f2a45",
   },
   typography: {
     fontFamily:

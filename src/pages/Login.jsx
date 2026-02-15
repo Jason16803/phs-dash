@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+// import "./styles/";
 import { coreLogin } from "../api/auth";
 
 export default function Login() {
@@ -42,63 +43,64 @@ export default function Login() {
     }
 
 
- return (
-  <div className="min-h-screen bg-[var(--bg)] px-6 py-10 text-[var(--text)]">
-    <div className="mx-auto grid min-h-[calc(100vh-5rem)] max-w-[420px] place-items-center">
-      <div className="w-full rounded-[var(--r-xl)] border border-[var(--border)] bg-[var(--surface)] p-5 shadow-[var(--shadow-sm)]">
-        <div className="mb-4">
-          <h2 className="m-0 text-xl font-semibold tracking-tight">PHS-dash Login</h2>
-          <p className="mt-1 text-sm text-[var(--muted)]">
-            Sign in to access the admin dashboard.
-          </p>
+return (
+  <div className="min-h-screen flex items-center justify-center bg-[var(--phs-bg)] px-4">
+    <div className="w-full max-w-md rounded-lg bg-white p-8 shadow-lg">
+      <h2 className="text-2xl font-semibold text-[var(--phs-text)]">
+        PHS-dash Login
+      </h2>
+
+      <p className="mt-2 text-sm text-[var(--phs-muted)]">
+        Sign in to access the admin dashboard.
+      </p>
+
+      <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+        <div>
+          <label className="block text-sm font-medium text-[var(--phs-text)]">
+            Email
+          </label>
+          <input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            autoComplete="username"
+            required
+            className="mt-1 w-full rounded-lg border border-[var(--phs-border)] bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--phs-primary)]"
+          />
         </div>
 
-        <form onSubmit={handleSubmit} className="grid gap-3">
-          <label className="grid gap-1.5">
-            <span className="text-xs font-medium text-[var(--text)]/80">Email</span>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              autoComplete="username"
-              required
-              className="w-full rounded-[var(--r-lg)] border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm outline-none transition focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/20"
-            />
+        <div>
+          <label className="block text-sm font-medium text-[var(--phs-text)]">
+            Password
           </label>
-
-          <label className="grid gap-1.5">
-            <span className="text-xs font-medium text-[var(--text)]/80">Password</span>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              autoComplete="current-password"
-              required
-              className="w-full rounded-[var(--r-lg)] border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm outline-none transition focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/20"
-            />
-          </label>
-
-          {error ? (
-            <div className="rounded-[var(--r-lg)] border border-[var(--danger)]/30 bg-[var(--danger)]/5 px-3 py-2 text-sm text-[var(--danger)]">
-              {error}
-            </div>
-          ) : null}
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="mt-1 inline-flex w-full items-center justify-center rounded-[var(--r-full)] bg-[var(--secondary)] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[var(--secondary)]/90 disabled:cursor-not-allowed disabled:opacity-70"
-          >
-            {loading ? "Signing in..." : "Sign in"}
-          </button>
-        </form>
-
-        <div className="mt-4 text-xs text-[var(--muted)]">
-          Protected tenant dashboard • SFG Core Auth
+          <input
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            autoComplete="current-password"
+            required
+            className="mt-1 w-full rounded-lg border border-[var(--phs-border)] bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--phs-primary)]"
+          />
         </div>
+
+        {error && <div className="text-sm text-red-600">{error}</div>}
+
+        <button
+          type="submit"
+          disabled={loading}
+          className="w-full rounded-full bg-[var(--phs-primary)] text-white py-2.5 text-sm font-medium hover:opacity-90 transition disabled:opacity-70"
+        >
+          {loading ? "Signing in..." : "Sign in"}
+        </button>
+      </form>
+
+      <div className="mt-6 text-xs text-center text-[var(--phs-muted)]">
+        Protected tenant dashboard • SFG Core Auth
       </div>
     </div>
   </div>
 );
+
+
 
 }

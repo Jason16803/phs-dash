@@ -7,8 +7,15 @@ export function applyTheme(theme) {
   root.style.setProperty("--phs-border", theme.colors.border);
   root.style.setProperty("--phs-text", theme.colors.text);
   root.style.setProperty("--phs-muted", theme.colors.muted);
+
   root.style.setProperty("--phs-primary", theme.colors.primary);
   root.style.setProperty("--phs-primary-soft", theme.colors.primarySoft);
+
+  // optional
+  if (theme.colors.primaryHover)
+    root.style.setProperty("--phs-primary-hover", theme.colors.primaryHover);
+  if (theme.colors.primaryDark)
+    root.style.setProperty("--phs-primary-dark", theme.colors.primaryDark);
 
   root.style.setProperty("--phs-font", theme.typography.fontFamily);
 
