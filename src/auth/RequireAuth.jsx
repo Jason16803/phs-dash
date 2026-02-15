@@ -29,7 +29,10 @@ export default function RequireAuth({ children }) {
 
       try {
         const me = await coreMe(token);
-        const tenantId = me?.data?.tenantId;
+        // Temporary check
+        console.log("coreMe response:", me?.data);
+        const tenantId = me?.data?.data?.tenantId ?? me?.data?.tenantId;
+        console.log("Tenant ID:", tenantId);
 
         if (tenantId !== REQUIRED_TENANT_ID) {
           localStorage.removeItem("sfg_access_token");
