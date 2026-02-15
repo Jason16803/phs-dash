@@ -27,3 +27,12 @@ export async function updateIntake(intakeId, payload) {
   });
   return res.data;
 }
+
+export async function convertIntake(intakeId) {
+  const res = await coreClient.post(`/api/v1/intake/${intakeId}/convert`, {}, {
+    headers: headers(),
+  });
+  return res.data; // { success, message, data: { intake, customer, job } }
+}
+
+

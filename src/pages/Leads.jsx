@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { listIntakes } from "../api/intakeClient";
-import { createCustomer, createJob, updateIntake } from "../api/crm";
+import { convertIntake, updateIntake } from "../api/crm";
 
 const STATUS_OPTIONS = ["New", "Contacted", "Booked", "Not interested", "Closed"];
 
@@ -9,7 +9,7 @@ export default function Leads() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [convertingId, setConvertingId] = useState(null);
-  const [statusFilter, setStatusFilter] = useState("new");
+  const [statusFilter, setStatusFilter] = useState("New");
   const [query, setQuery] = useState("");
 
   async function load() {
@@ -53,50 +53,64 @@ export default function Leads() {
     }
   }
 
-  function splitName(full = "") {
-    const parts = full.trim().split(/\s+/).filter(Boolean);
-    if (parts.length === 0) return { firstName: "Unknown", lastName: "Customer" };
-    if (parts.length === 1) return { firstName: parts[0], lastName: "Customer" };
-    return { firstName: parts[0], lastName: parts.slice(1).join(" ") };
-  }
+  // function splitName(full = "") {
+  //   const parts = full.trim().split(/\s+/).filter(Boolean);
+  //   if (parts.length === 0) return { firstName: "Unknown", lastName: "Customer" };
+  //   if (parts.length === 1) return { firstName: parts[0], lastName: "Customer" };
+  //   return { firstName: parts[0], lastName: parts.slice(1).join(" ") };
+  // }
 
-  async function convertLead(lead) {
-    const { firstName, lastName } = splitName(lead.name);
+  // async function convertLead(lead) {
+  //   const { firstName, lastName } = splitName(lead.name);
 
-    const customerRes = await createCustomer({
-      firstName,
-      lastName,
-      email: lead.email || "",
-      phone: lead.phone || "",
-      address: lead.zip ? { zip: lead.zip } : undefined,
-    });
+  //   const customerRes = await createCustomer({
+  //     firstName,
+  //     lastName,
+  //     email: lead.email || "",
+  //     phone: lead.phone || "",
+  //     address: lead.zip ? { zip: lead.zip } : undefined,
+  //   });
 
-    const customer = customerRes?.data;
-    const customerId = customer?._id || customer?.id;
-    if (!customerId) throw new Error("Customer created but no id returned.");
+  //   const customer = customerRes?.data;
+  //   const customerId = customer?._id || customer?.id;
+  //   if (!customerId) throw new Error("Customer created but no id returned.");
 
-    const title =
-      (lead.message || "").slice(0, 60) || `Service Request (${lead.zip || "no zip"})`;
+  //   const title =
+  //     (lead.message || "").slice(0, 60) || `Service Request (${lead.zip || "no zip"})`;
 
-    await createJob({
-      customerId,
-      title,
-      status: "created",
-      notes: lead.message || "",
-    });
+  //   await createJob({
+  //     customerId,
+  //     title,
+  //     status: "created",
+  //     notes: lead.message || "",
+  //   });
 
-    await updateIntake(lead._id, {
-      status: "Booked",
-      convertedToCustomerId: customerId,
-    });
-  }
+  //   await updateIntake(lead._id, {
+  //     status: "Booked",
+  //     convertedToCustomerId: customerId,
+  //   });
+  // }
+
+  // async function markBooked(lead) {
+  //   setError("");
+  //   setConvertingId(lead._id);
+
+  //   try {
+  //     await convertLead(lead);
+  //     await load();
+  //   } catch (e) {
+  //     setError(e?.response?.data?.message || e?.message || "Conversion failed.");
+  //   } finally {
+  //     setConvertingId(null);
+  //   }
+  // }
 
   async function markBooked(lead) {
     setError("");
     setConvertingId(lead._id);
 
     try {
-      await convertLead(lead);
+      await convertIntake(lead._id);
       await load();
     } catch (e) {
       setError(e?.response?.data?.message || e?.message || "Conversion failed.");
@@ -104,6 +118,7 @@ export default function Leads() {
       setConvertingId(null);
     }
   }
+
 
   return (
     <div className="space-y-4">
