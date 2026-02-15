@@ -37,8 +37,8 @@ export default function AdminLayout() {
           <button
             className="navLink navLinkBtn"
             onClick={() => {
-              localStorage.removeItem("phs_token");
-              window.location.href = "/";
+              localStorage.removeItem("sfg_access_token");
+              window.location.href = "/login";
             }}
             type="button"
           >

@@ -1,5 +1,6 @@
 import React from "react";
 import { Routes, Route } from "react-router-dom";
+import {  Navigate } from "react-router-dom";
 
 import RequireAuth from "../auth/RequireAuth";
 import AdminLayout from "../layout/AdminLayout";
@@ -26,6 +27,7 @@ export default function AppRoutes() {
         }
       >
         <Route index element={<Dashboard />} />
+        <Route path="dashboard" element={<Dashboard />} /> {/* add this */}
         <Route path="customers" element={<Customers />} />
         <Route path="jobs" element={<Jobs />} />
         <Route path="leads" element={<Leads />} />
@@ -33,9 +35,9 @@ export default function AppRoutes() {
         <Route path="settings" element={<Settings />} />
       </Route>
 
-      {/* Default */}
-      <Route path="/" element={<Login />} />
+      <Route path="/" element={<Navigate to="/admin" replace />} />
       <Route path="*" element={<div style={{ padding: 24 }}>Not found</div>} />
+
     </Routes>
   );
 }
