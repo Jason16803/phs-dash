@@ -2,17 +2,14 @@ import React, { useEffect, useMemo, useState } from "react";
 import { listIntakes } from "../api/intakeClient";
 import { createCustomer, createJob, updateIntake } from "../api/crm";
 
-
 const STATUS_OPTIONS = ["New", "Contacted", "Booked", "Not interested", "Closed"];
 
 export default function Leads() {
   const [intakes, setIntakes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-
   const [convertingId, setConvertingId] = useState(null);
-
-  const [statusFilter, setStatusFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState("new");
   const [query, setQuery] = useState("");
 
   async function load() {
@@ -39,18 +36,10 @@ export default function Leads() {
     if (!q) return intakes;
 
     return intakes.filter((l) => {
-      const hay = [
-        l.name,
-        l.email,
-        l.phone,
-        l.zip,
-        l.message,
-        l.status,
-      ]
+      const hay = [l.name, l.email, l.phone, l.zip, l.message, l.status]
         .filter(Boolean)
         .join(" ")
         .toLowerCase();
-
       return hay.includes(q);
     });
   }, [intakes, query]);
@@ -116,34 +105,35 @@ export default function Leads() {
     }
   }
 
-
-
   return (
-    <div style={{ display: "grid", gap: 14 }}>
-      <div className="card">
-        <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+    <div className="space-y-4">
+      {/* Header card */}
+      <div className="rounded-[var(--phs-radius-lg)] border border-[var(--phs-border)] bg-[var(--phs-surface)] p-4 shadow-[var(--phs-shadow-soft)]">
+        <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
           <div>
-            <div style={{ fontWeight: 800, fontSize: 18 }}>Leads</div>
-            <div style={{ color: "var(--phs-muted)", marginTop: 4 }}>
+            <div className="text-lg font-extrabold">Leads</div>
+            <div className="mt-1 text-sm text-[var(--phs-muted)]">
               Intake messages captured for your tenant. Convert them into customers/jobs.
             </div>
+
+            {error ? (
+              <div className="mt-3 text-sm text-[var(--color-danger,#dc2626)]">
+                {error}
+              </div>
+            ) : null}
           </div>
 
-          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              style={{
-                padding: "10px 12px",
-                borderRadius: 12,
-                border: "1px solid var(--phs-border)",
-                background: "white",
-                height: 42,
-              }}
+              className="h-10 rounded-xl border border-[var(--phs-border)] bg-white px-3 text-sm outline-none focus:ring-2 focus:ring-[var(--phs-primary)]"
             >
               <option value="">All statuses</option>
               {STATUS_OPTIONS.map((s) => (
-                <option key={s} value={s}>{s}</option>
+                <option key={s} value={s}>
+                  {s}
+                </option>
               ))}
             </select>
 
@@ -151,129 +141,117 @@ export default function Leads() {
               placeholder="Search leads…"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              style={{
-                padding: "10px 12px",
-                borderRadius: 999,
-                border: "1px solid var(--phs-border)",
-                width: 320,
-                height: 42,
-              }}
+              className="h-10 w-full sm:w-80 rounded-[var(--phs-radius-pill)] border border-[var(--phs-border)] bg-white px-4 text-sm outline-none focus:ring-2 focus:ring-[var(--phs-primary)]"
             />
 
             <button
               type="button"
               onClick={load}
-              style={{
-                padding: "10px 14px",
-                borderRadius: 999,
-                border: "1px solid var(--phs-border)",
-                background: "var(--phs-surface)",
-                cursor: "pointer",
-                height: 42,
-              }}
+              className="h-10 rounded-[var(--phs-radius-pill)] border border-[var(--phs-border)] bg-[var(--phs-surface)] px-4 text-sm font-semibold hover:bg-black/5"
             >
               Refresh
             </button>
           </div>
         </div>
-
-        {error ? <div style={{ color: "#b91c1c", marginTop: 10, fontSize: 13 }}>{error}</div> : null}
       </div>
 
-      <div className="card">
-        <div style={{ fontWeight: 700, marginBottom: 10 }}>
-          Lead List{" "}
-          <span style={{ color: "var(--phs-muted)", fontWeight: 500 }}>
-            ({filtered.length})
-          </span>
+      {/* Table card */}
+      <div className="rounded-[var(--phs-radius-lg)] border border-[var(--phs-border)] bg-[var(--phs-surface)] p-4 shadow-[var(--phs-shadow-soft)]">
+        <div className="mb-3 flex items-center gap-2 text-sm font-bold">
+          <span>Lead List</span>
+          <span className="font-medium text-[var(--phs-muted)]">({filtered.length})</span>
         </div>
 
         {loading ? (
-          <div style={{ color: "var(--phs-muted)" }}>Loading…</div>
+          <div className="text-sm text-[var(--phs-muted)]">Loading…</div>
         ) : filtered.length === 0 ? (
-          <div style={{ color: "var(--phs-muted)" }}>No leads found.</div>
+          <div className="text-sm text-[var(--phs-muted)]">No leads found.</div>
         ) : (
-          <div style={{ overflowX: "auto" }}>
-            <table style={{ width: "100%", borderCollapse: "separate", borderSpacing: "0 10px", minWidth: 980 }}>
+          <div className="overflow-x-auto">
+            <table className="min-w-[980px] w-full border-separate border-spacing-y-2">
               <thead>
-                <tr style={{ textAlign: "left", color: "#111827", fontSize: 13 }}>
-                  <th>Date</th>
-                  <th>Name</th>
-                  <th>Email</th>
-                  <th>ZIP</th>
-                  <th style={{ width: 360 }}>Message</th>
-                  <th>Status</th>
-                  <th>Converted</th>
-                  <th style={{ textAlign: "right" }}>Actions</th>
+                <tr className="text-left text-xs font-bold text-[var(--phs-text)]">
+                  <th className="px-3 py-2">Date</th>
+                  <th className="px-3 py-2">Name</th>
+                  <th className="px-3 py-2">Email</th>
+                  <th className="px-3 py-2">ZIP</th>
+                  <th className="px-3 py-2 w-[360px]">Message</th>
+                  <th className="px-3 py-2">Status</th>
+                  <th className="px-3 py-2">Converted</th>
+                  <th className="px-3 py-2 text-right">Actions</th>
                 </tr>
               </thead>
 
               <tbody>
-                {filtered.map((l) => (
-                  <tr key={l._id} style={{ background: "#f9fafb", border: "1px solid var(--phs-border)" }}>
-                    <td style={cell()}>
-                      {l.createdAt ? new Date(l.createdAt).toLocaleString() : "—"}
-                    </td>
-                    <td style={cell()}>{l.name || "—"}</td>
-                    <td style={cell()}>{l.email || "—"}</td>
-                    <td style={cell()}>{l.zip || "—"}</td>
-                    <td style={cell()}>
-                      <div style={{ maxWidth: 360, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                        {l.message || "—"}
-                      </div>
-                    </td>
+                {filtered.map((l) => {
+                  const isConverted = !!l.convertedToCustomerId;
+                  const isConverting = convertingId === l._id;
 
-                    <td style={cell()}>
-                      <select
-                        value={l.status || "New"}
-                        onChange={(e) => setStatus(l._id, e.target.value)}
-                        style={{
-                          padding: "8px 10px",
-                          borderRadius: 10,
-                          border: "1px solid var(--phs-border)",
-                          background: "white",
-                        }}
-                      >
-                        {STATUS_OPTIONS.map((s) => (
-                          <option key={s} value={s}>{s}</option>
-                        ))}
-                      </select>
-                    </td>
+                  return (
+                    <tr
+                      key={l._id}
+                      className="bg-[#f9fafb] border border-[var(--phs-border)]"
+                    >
+                      <td className={td()}>
+                        {l.createdAt ? new Date(l.createdAt).toLocaleString() : "—"}
+                      </td>
+                      <td className={td()}>{l.name || "—"}</td>
+                      <td className={td()}>{l.email || "—"}</td>
+                      <td className={td()}>{l.zip || "—"}</td>
 
-                    <td style={cell()}>
-                      {l.convertedToCustomerId
-                        ? `${l.convertedToCustomerId.firstName || ""} ${l.convertedToCustomerId.lastName || ""}`.trim() ||
-                          l.convertedToCustomerId.email ||
-                          "Converted"
-                        : "—"}
-                    </td>
+                      <td className={td()}>
+                        <div className="max-w-[360px] truncate">
+                          {l.message || "—"}
+                        </div>
+                      </td>
 
-                    <td style={{ ...cell(), textAlign: "right" }}>
-                      <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
-                        <button
-                          type="button"
-                          onClick={() => markBooked(l)}
-                          style={btnPrimary()}
-                          disabled={convertingId === l._id || !!l.convertedToCustomerId}
+                      <td className={td()}>
+                        <select
+                          value={l.status || "New"}
+                          onChange={(e) => setStatus(l._id, e.target.value)}
+                          className="rounded-lg border border-[var(--phs-border)] bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[var(--phs-primary)]"
                         >
-                          {l.convertedToCustomerId
-                            ? "Converted"
-                            : convertingId === l._id
-                              ? "Converting..."
-                              : "Book / Convert"}
-                        </button>
+                          {STATUS_OPTIONS.map((s) => (
+                            <option key={s} value={s}>
+                              {s}
+                            </option>
+                          ))}
+                        </select>
+                      </td>
 
-                        <button
-                          type="button"
-                          onClick={() => setStatus(l._id, "Not interested")}
-                          style={btnGhost()}
-                        >
-                          Not interested
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                      <td className={td()}>
+                        {isConverted ? (
+                          <span className="inline-flex items-center rounded-full bg-[var(--phs-primary-soft)] px-3 py-1 text-xs font-semibold text-[var(--phs-primary)]">
+                            Converted
+                          </span>
+                        ) : (
+                          "—"
+                        )}
+                      </td>
+
+                      <td className={`${td()} text-right`}>
+                        <div className="flex justify-end gap-2">
+                          <button
+                            type="button"
+                            onClick={() => markBooked(l)}
+                            disabled={isConverting || isConverted}
+                            className="rounded-xl bg-[var(--phs-primary)] px-4 py-2 text-sm font-bold text-white transition hover:opacity-90 disabled:opacity-60"
+                          >
+                            {isConverted ? "Converted" : isConverting ? "Converting..." : "Book / Convert"}
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => setStatus(l._id, "Not interested")}
+                            className="rounded-xl border border-[var(--phs-border)] bg-white px-4 py-2 text-sm font-bold hover:bg-black/5"
+                          >
+                            Not interested
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -283,37 +261,6 @@ export default function Leads() {
   );
 }
 
-function cell() {
-  return {
-    padding: "12px 12px",
-    borderTop: "1px solid var(--phs-border)",
-    borderBottom: "1px solid var(--phs-border)",
-    fontSize: 13,
-    verticalAlign: "top",
-  };
-}
-
-function btnPrimary() {
-  return {
-    padding: "8px 12px",
-    borderRadius: 12,
-    border: "none",
-    background: "var(--phs-primary)",
-    color: "white",
-    cursor: "pointer",
-    fontWeight: 700,
-    fontSize: 13,
-  };
-}
-
-function btnGhost() {
-  return {
-    padding: "8px 12px",
-    borderRadius: 12,
-    border: "1px solid var(--phs-border)",
-    background: "white",
-    cursor: "pointer",
-    fontWeight: 700,
-    fontSize: 13,
-  };
+function td() {
+  return "px-3 py-3 text-sm align-top border-y border-[var(--phs-border)]";
 }
