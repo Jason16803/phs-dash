@@ -1,3 +1,8 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+
 :root{
   --phs-bg: #f4f6f9;
   --phs-surface: #fff;
