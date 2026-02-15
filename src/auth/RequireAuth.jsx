@@ -1,3 +1,4 @@
+// RequireAuth.jsx
 import React, { useEffect, useState } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { coreMe } from "../api/coreClient";
@@ -6,10 +7,7 @@ function getToken() {
   return localStorage.getItem("sfg_access_token");
 }
 
-const ALLOWED_TENANT_IDS = (import.meta.env.VITE_ALLOWED_TENANTS || "")
-  .split(",")
-  .map((s) => s.trim())
-  .filter(Boolean);
+const ALLOWED_TENANT_IDS = ["TNT_YRNBZWIEA8PH", "TNT_4TWOZ4KYOO2O"];
 
 export default function RequireAuth({ children }) {
   const location = useLocation();
@@ -17,34 +15,47 @@ export default function RequireAuth({ children }) {
   const [errorMsg, setErrorMsg] = useState("");
 
   useEffect(() => {
-    let isMounted = true;
+    let alive = true;
 
-    async function check() {
-      setStatus("checking");
-      setErrorMsg("");
-
-      const token = getToken();
-      if (!token) return isMounted && setStatus("unauthed");
-
+    (async () => {
       try {
-        const me = await coreMe(token);
-        const tenantId = me?.data?.tenantId;
-
-        if (ALLOWED_TENANT_IDS.length && !ALLOWED_TENANT_IDS.includes(tenantId)) {
-          localStorage.removeItem("sfg_access_token");
-          return isMounted && setStatus("unauthed");
+        const token = getToken();
+        if (!token) {
+          if (alive) setStatus("unauthed");
+          return;
         }
 
-        if (isMounted) setStatus("authed");
+        // coreMe returns the JSON payload from the API
+        const payload = await coreMe(token);
+
+        // Your API successResponse likely returns:
+        // { success, message, data: { id, email, tenantId, ... } }
+        const user = payload?.data ?? payload?.data?.data;
+        const tenantId = user?.tenantId;
+
+        if (!tenantId) {
+          localStorage.removeItem("sfg_access_token");
+          if (alive) setStatus("unauthed");
+          return;
+        }
+
+        if (!ALLOWED_TENANT_IDS.includes(tenantId)) {
+          localStorage.removeItem("sfg_access_token");
+          if (alive) setStatus("unauthed");
+          return;
+        }
+
+        if (alive) setStatus("authed");
       } catch (e) {
         const httpStatus = e?.response?.status;
 
         if (httpStatus === 401 || httpStatus === 403) {
           localStorage.removeItem("sfg_access_token");
-          return isMounted && setStatus("unauthed");
+          if (alive) setStatus("unauthed");
+          return;
         }
 
-        if (isMounted) {
+        if (alive) {
           setErrorMsg(
             e?.response?.data?.message ||
               e?.message ||
@@ -53,11 +64,10 @@ export default function RequireAuth({ children }) {
           setStatus("error");
         }
       }
-    }
+    })();
 
-    check();
     return () => {
-      isMounted = false;
+      alive = false;
     };
   }, []);
 
@@ -70,6 +80,7 @@ export default function RequireAuth({ children }) {
         <button onClick={() => window.location.reload()}>Retry</button>
       </div>
     );
+
   if (status === "unauthed") return <Navigate to="/login" replace state={{ from: location }} />;
 
   return children;
