@@ -21,6 +21,9 @@ export default function AdminLayout() {
           <NavLink to="/admin/customers" className="navLink">
             Customers
           </NavLink>
+          <NavLink to="/admin/leads" className="navLink">
+            Leads
+          </NavLink>
           <NavLink to="/admin/jobs" className="navLink">
             Jobs
           </NavLink>

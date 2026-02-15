@@ -32,7 +32,7 @@ export default function Customers() {
         headers: { Authorization: `Bearer ${getToken()}` },
       });
 
-      const list = res.data?.data || [];
+      const list = res.data?.data?.customers || [];
       setCustomers(Array.isArray(list) ? list : []);
     } catch (e) {
       setCustomers([]);

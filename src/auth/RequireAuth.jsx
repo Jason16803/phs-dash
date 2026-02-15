@@ -6,6 +6,8 @@ function getToken() {
   return localStorage.getItem("sfg_access_token");
 }
 
+const REQUIRED_TENANT_ID = "TNT_YRNBZWIEA8PH";
+
 export default function RequireAuth({ children }) {
   const location = useLocation();
 
@@ -26,7 +28,15 @@ export default function RequireAuth({ children }) {
       }
 
       try {
-        await coreMe(token);
+        const me = await coreMe(token);
+        const tenantId = me?.data?.tenantId;
+
+        if (tenantId !== REQUIRED_TENANT_ID) {
+          localStorage.removeItem("sfg_access_token");
+          if (isMounted) setStatus("unauthed");
+          return;
+        }
+
         if (isMounted) setStatus("authed");
       } catch (e) {
         const httpStatus = e?.response?.status;
@@ -41,7 +51,8 @@ export default function RequireAuth({ children }) {
         // Otherwise it's likely network/CORS/5xx -> don't nuke token
         if (isMounted) {
           setErrorMsg(
-            e?.message ||
+            e?.response?.data?.message ||
+              e?.message ||
               "Unable to verify session right now. Please try again."
           );
           setStatus("error");
@@ -53,7 +64,7 @@ export default function RequireAuth({ children }) {
     return () => {
       isMounted = false;
     };
-  }, [location.pathname]);
+  }, []);
 
   if (status === "checking") {
     return <div style={{ padding: 24 }}>Checking session…</div>;

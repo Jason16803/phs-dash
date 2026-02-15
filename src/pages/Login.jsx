@@ -20,7 +20,7 @@ export default function Login() {
       setLoading(true);
 
       try {
-        const data = await coreLogin({ email, password });
+        const data = await coreLogin({ email: email.toLowerCase().trim(), password });
 
         const accessToken = data?.data?.accessToken;
 

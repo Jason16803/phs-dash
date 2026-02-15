@@ -12,8 +12,26 @@ export default function Jobs() {
 
   // simple create form
   const [title, setTitle] = useState("");
-  const [status, setStatus] = useState("scheduled");
+  const [status, setStatus] = useState("created");
   const [notes, setNotes] = useState("");
+
+  const [customers, setCustomers] = useState([]);
+  const [customerId, setCustomerId] = useState("");
+
+  async function fetchCustomers() {
+    try {
+      const res = await coreClient.get("/api/v1/customers", {
+        headers: { Authorization: `Bearer ${getToken()}` },
+      });
+
+      const list = res.data?.data?.customers || [];
+      setCustomers(Array.isArray(list) ? list : []);
+    } catch (e) {
+      // don't hard-fail the jobs page if customers can't load
+      console.error("Failed to load customers:", e);
+      setCustomers([]);
+    }
+  }
 
   async function fetchJobs() {
     setError("");
@@ -24,7 +42,7 @@ export default function Jobs() {
       });
 
       // successResponse format: { success, message, data }
-      const list = res.data?.data || [];
+      const list = res.data?.data?.jobs || [];
       setJobs(Array.isArray(list) ? list : []);
     } catch (e) {
       setJobs([]);
@@ -44,6 +62,7 @@ export default function Jobs() {
 
     try {
       const payload = {
+        customerId,
         title,
         status,
         notes,
@@ -54,7 +73,7 @@ export default function Jobs() {
       });
 
       setTitle("");
-      setStatus("scheduled");
+      setStatus("created");
       setNotes("");
       fetchJobs();
     } catch (e) {
@@ -67,6 +86,7 @@ export default function Jobs() {
   }
 
   useEffect(() => {
+    fetchCustomers();
     fetchJobs();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -83,6 +103,28 @@ export default function Jobs() {
           onSubmit={createJob}
           style={{ display: "grid", gap: 10, marginTop: 14 }}
         >
+          <div style={{ display: "grid", gap: 6 }}>
+            <label style={{ fontSize: 13, color: "#374151" }}>Customer</label>
+            <select
+              value={customerId}
+              onChange={(e) => setCustomerId(e.target.value)}
+              required
+              style={{
+                padding: "10px 12px",
+                borderRadius: 12,
+                border: "1px solid var(--phs-border)",
+                background: "white",
+              }}
+            >
+              <option value="">Select a customer…</option>
+              {customers.map((c) => (
+                <option key={c._id || c.id} value={c._id || c.id}>
+                  {`${c.firstName || ""} ${c.lastName || ""}`.trim() || c.email || "Customer"}
+                </option>
+              ))}
+            </select>
+          </div>
+
           <div style={{ display: "grid", gap: 6 }}>
             <label style={{ fontSize: 13, color: "#374151" }}>Title</label>
             <input
@@ -110,10 +152,12 @@ export default function Jobs() {
                 background: "white",
               }}
             >
+              <option value="created">created</option>
               <option value="scheduled">scheduled</option>
-              <option value="in_progress">in_progress</option>
+              <option value="in-progress">in-progress</option>
               <option value="completed">completed</option>
-              <option value="cancelled">cancelled</option>
+              <option value="canceled">canceled</option>
+              <option value="archived">archived</option>
             </select>
           </div>
 
@@ -180,6 +224,8 @@ export default function Jobs() {
           </button>
         </div>
 
+        
+
         {loading ? (
           <div style={{ color: "var(--phs-muted)" }}>Loading…</div>
         ) : jobs.length === 0 ? (
@@ -205,6 +251,16 @@ export default function Jobs() {
                   <div style={{ fontWeight: 700 }}>
                     {job.title || job.name || "Untitled job"}
                   </div>
+                  
+                  <div style={{ color: "var(--phs-muted)", fontSize: 13, marginTop: 4 }}>
+                    <strong>Customer:</strong>{" "}
+                    {job.customerId
+                      ? `${job.customerId.firstName || ""} ${job.customerId.lastName || ""}`.trim() ||
+                        job.customerId.email ||
+                        "—"
+                      : "—"}
+                  </div>
+
                   <div style={{ color: "var(--phs-muted)", fontSize: 13, marginTop: 4 }}>
                     {job.notes || "—"}
                   </div>
