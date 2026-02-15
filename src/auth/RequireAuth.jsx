@@ -6,12 +6,14 @@ function getToken() {
   return localStorage.getItem("sfg_access_token");
 }
 
-const REQUIRED_TENANT_ID = "TNT_YRNBZWIEA8PH";
+const ALLOWED_TENANT_IDS = (import.meta.env.VITE_ALLOWED_TENANTS || "")
+  .split(",")
+  .map((s) => s.trim())
+  .filter(Boolean);
 
 export default function RequireAuth({ children }) {
   const location = useLocation();
-
-  const [status, setStatus] = useState("checking"); // checking | authed | unauthed | error
+  const [status, setStatus] = useState("checking");
   const [errorMsg, setErrorMsg] = useState("");
 
   useEffect(() => {
@@ -22,36 +24,26 @@ export default function RequireAuth({ children }) {
       setErrorMsg("");
 
       const token = getToken();
-      if (!token) {
-        if (isMounted) setStatus("unauthed");
-        return;
-      }
+      if (!token) return isMounted && setStatus("unauthed");
 
       try {
         const me = await coreMe(token);
-        // Temporary check
-        console.log("coreMe response:", me?.data);
-        const tenantId = me?.data?.data?.tenantId ?? me?.data?.tenantId;
-        console.log("Tenant ID:", tenantId);
+        const tenantId = me?.data?.tenantId;
 
-        if (tenantId !== REQUIRED_TENANT_ID) {
+        if (ALLOWED_TENANT_IDS.length && !ALLOWED_TENANT_IDS.includes(tenantId)) {
           localStorage.removeItem("sfg_access_token");
-          if (isMounted) setStatus("unauthed");
-          return;
+          return isMounted && setStatus("unauthed");
         }
 
         if (isMounted) setStatus("authed");
       } catch (e) {
         const httpStatus = e?.response?.status;
 
-        // If Core says unauthorized/forbidden, token is bad/expired -> logout
         if (httpStatus === 401 || httpStatus === 403) {
           localStorage.removeItem("sfg_access_token");
-          if (isMounted) setStatus("unauthed");
-          return;
+          return isMounted && setStatus("unauthed");
         }
 
-        // Otherwise it's likely network/CORS/5xx -> don't nuke token
         if (isMounted) {
           setErrorMsg(
             e?.response?.data?.message ||
@@ -69,25 +61,16 @@ export default function RequireAuth({ children }) {
     };
   }, []);
 
-  if (status === "checking") {
-    return <div style={{ padding: 24 }}>Checking session…</div>;
-  }
-
-  if (status === "error") {
+  if (status === "checking") return <div style={{ padding: 24 }}>Checking session…</div>;
+  if (status === "error")
     return (
       <div style={{ padding: 24 }}>
-        <div style={{ marginBottom: 8, fontWeight: 700 }}>
-          Session check failed
-        </div>
+        <div style={{ marginBottom: 8, fontWeight: 700 }}>Session check failed</div>
         <div style={{ color: "#6b7280", marginBottom: 12 }}>{errorMsg}</div>
         <button onClick={() => window.location.reload()}>Retry</button>
       </div>
     );
-  }
-
-  if (status === "unauthed") {
-    return <Navigate to="/login" replace state={{ from: location }} />;
-  }
+  if (status === "unauthed") return <Navigate to="/login" replace state={{ from: location }} />;
 
   return children;
 }
