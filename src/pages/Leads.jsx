@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { listIntakes, createIntake } from "../api/intakeClient";
-import { updateIntake } from "../api/crm";
+import { listIntakes, createIntake, updateIntake } from "../api/intakeClient";
 
 const STATUS_OPTIONS = ["New", "Contacted", "Converted", "Not interested", "Closed"];
 
@@ -22,6 +21,13 @@ export default function Leads() {
     email: "",
     phone: "",
     zip: "",
+    address: { 
+      line1: "", 
+      line2: "", 
+      city: "", 
+      state: "GA", 
+      postalCode: "" 
+    },
     message: "",
     status: "New",
     source: "dashboard",
@@ -52,7 +58,14 @@ export default function Leads() {
     if (!q) return intakes;
 
     return intakes.filter((l) => {
-      const hay = [l.name, l.email, l.phone, l.zip, l.message, l.status]
+      const hay = [
+        l.name,
+        l.email,
+        l.phone,
+        l.zip || l.address?.postalCode,
+        l.message,
+        l.status,
+      ]
         .filter(Boolean)
         .join(" ")
         .toLowerCase();
@@ -96,10 +109,12 @@ export default function Leads() {
         email: "",
         phone: "",
         zip: "",
+        address: { line1: "", line2: "", city: "", state: "GA", postalCode: "" },
         message: "",
         status: "New",
         source: "dashboard",
       });
+
 
       await load();
     } catch (e2) {
@@ -199,7 +214,7 @@ export default function Leads() {
                     <td className={td()}>{l.name || "—"}</td>
                     <td className={td()}>{l.email || "—"}</td>
                     <td className={td()}>{l.phone || "—"}</td>
-                    <td className={td()}>{l.zip || "—"}</td>
+                    <td className={td()}>{l.zip || l.address?.postalCode || "—"}</td>
                     <td className={td()}>
                       <div className="max-w-[360px] truncate">{l.message || "—"}</div>
                     </td>
@@ -264,7 +279,7 @@ export default function Leads() {
                 actionText="Copy"
                 onAction={() => copy(selectedLead.phone)}
               />
-              <Field label="ZIP" value={selectedLead.zip || "—"} />
+              <Field label="ZIP" value={selectedLead.zip || selectedLead.address?.postalCode || "—"} />
               <Field label="Source" value={selectedLead.source || "—"} />
             </div>
 
@@ -333,7 +348,31 @@ export default function Leads() {
                 value={addForm.phone}
                 onChange={(v) => setAddForm((p) => ({ ...p, phone: v }))}
               />
-
+              <Input
+                label="Address line 1"
+                value={addForm.address.line1}
+                onChange={(v) => setAddForm((p) => ({ ...p, address: { ...p.address, line1: v } }))}
+              />
+              <Input
+                label="Address line 2"
+                value={addForm.address.line2}
+                onChange={(v) => setAddForm((p) => ({ ...p, address: { ...p.address, line2: v } }))}
+              />
+              <Input
+                label="City"
+                value={addForm.address.city}
+                onChange={(v) => setAddForm((p) => ({ ...p, address: { ...p.address, city: v } }))}
+              />
+              <Input
+                label="State"
+                value={addForm.address.state}
+                onChange={(v) => setAddForm((p) => ({ ...p, address: { ...p.address, state: v } }))}
+              />
+              <Input
+                label="Postal Code"
+                value={addForm.address.postalCode}
+                onChange={(v) => setAddForm((p) => ({ ...p, address: { ...p.address, postalCode: v } }))}
+              />
               <Input
                 label="ZIP"
                 value={addForm.zip}
