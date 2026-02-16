@@ -1,7 +1,23 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { listIntakes, createIntake, updateIntake } from "../api/intakeClient";
 
-const STATUS_OPTIONS = ["New", "Contacted", "Converted", "Not interested", "Closed"];
+const STATUS_OPTIONS = [
+  "New",
+  "Contacted",
+  "Converted",
+  "Not interested",
+  "Closed"
+];
+const INTAKE_SOURCE_OPTIONS = [
+  { value: "web", label: "Web" },
+  { value: "phone", label: "Phone" },
+  { value: "email", label: "Email" },
+  { value: "dashboard", label: "Dashboard" },
+  { value: "referral", label: "Referral" },
+  { value: "walk-in", label: "Walk-in" },
+  { value: "other", label: "Other" },
+];
+
 
 export default function Leads() {
   const [intakes, setIntakes] = useState([]);
@@ -97,7 +113,14 @@ export default function Leads() {
         name: addForm.name.trim(),
         email: addForm.email.trim().toLowerCase(),
         phone: addForm.phone.trim(),
-        zip: addForm.zip.trim(),
+        zip: addForm.zip.trim() || addForm.address.postalCode.trim(), // mirror postalCode into zip
+        address: {
+          line1: addForm.address.line1.trim(),
+          line2: addForm.address.line2.trim(),
+          city: addForm.address.city.trim(),
+          state: addForm.address.state.trim(),
+          postalCode: addForm.address.postalCode.trim(),
+        },
         message: addForm.message.trim(),
         status: addForm.status,
         source: addForm.source,
@@ -268,6 +291,7 @@ export default function Leads() {
               <Field label="Name" value={selectedLead.name || "—"} />
               <Field label="Status" value={selectedLead.status || "New"} />
               <Field
+                className="sm:col-span-2"
                 label="Email"
                 value={selectedLead.email || "—"}
                 actionText="Copy"
@@ -279,8 +303,11 @@ export default function Leads() {
                 actionText="Copy"
                 onAction={() => copy(selectedLead.phone)}
               />
-              <Field label="ZIP" value={selectedLead.zip || selectedLead.address?.postalCode || "—"} />
-              <Field label="Source" value={selectedLead.source || "—"} />
+              <Field
+                className="sm:col-span-2"
+                label="Address"
+                value={formattedAddress}
+              />
             </div>
 
             <div>
@@ -325,17 +352,20 @@ export default function Leads() {
                 onChange={(v) => setAddForm((p) => ({ ...p, name: v }))}
                 required
               />
-              <select
-                value={addForm.status}
-                onChange={(e) => setAddForm((p) => ({ ...p, status: e.target.value }))}
-                className="h-10 rounded-xl border border-[var(--phs-border)] bg-white px-3 text-sm outline-none focus:ring-2 focus:ring-[var(--phs-primary)]"
-              >
-                {STATUS_OPTIONS.map((s) => (
-                  <option key={s} value={s}>
-                    {s}
-                  </option>
-                ))}
-              </select>
+              <label className="block">
+                <div className="text-xs font-bold text-[var(--phs-muted)]">Status</div>
+                <select
+                  value={addForm.status}
+                  onChange={(e) => setAddForm((p) => ({ ...p, status: e.target.value }))}
+                  className="mt-1 h-10 w-full rounded-xl border border-[var(--phs-border)] bg-white px-3 text-sm outline-none focus:ring-2 focus:ring-[var(--phs-primary)]"
+                >
+                  {STATUS_OPTIONS.map((s) => (
+                    <option key={s} value={s}>
+                      {s}
+                    </option>
+                  ))}
+                </select>
+              </label>
 
               <Input
                 label="Email"
@@ -378,11 +408,20 @@ export default function Leads() {
                 value={addForm.zip}
                 onChange={(v) => setAddForm((p) => ({ ...p, zip: v }))}
               />
-              <Input
-                label="Source"
-                value={addForm.source}
-                onChange={(v) => setAddForm((p) => ({ ...p, source: v }))}
-              />
+              <label className="block">
+                <div className="text-xs font-bold text-[var(--phs-muted)]">Source</div>
+                <select
+                  value={addForm.source}
+                  onChange={(e) => setAddForm((p) => ({ ...p, source: e.target.value }))}
+                  className="mt-1 h-10 w-full rounded-xl border border-[var(--phs-border)] bg-white px-3 text-sm outline-none focus:ring-2 focus:ring-[var(--phs-primary)]"
+                >
+                  {INTAKE_SOURCE_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
             </div>
 
             <div>
@@ -452,9 +491,9 @@ function Modal({ title, children, onClose }) {
   );
 }
 
-function Field({ label, value, actionText, onAction }) {
+function Field({ label, value, actionText, onAction, className = "" }) {
   return (
-    <div className="rounded-xl border border-[var(--phs-border)] bg-white p-3">
+    <div className={`rounded-xl border border-[var(--phs-border)] bg-white p-3 ${className}`}>
       <div className="flex items-center justify-between gap-2">
         <div className="text-xs font-bold text-[var(--phs-muted)]">{label}</div>
         {actionText && onAction ? (

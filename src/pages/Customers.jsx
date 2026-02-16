@@ -266,16 +266,15 @@ function CustomerRow({ customer }) {
   const email = customer.email || "—";
   const phone = customer.phone || "—";
 
-  const addr = customer.address
-    ? [
-        customer.address.line1,
-        customer.address.city,
-        customer.address.state,
-        customer.address.zip,
-      ]
-        .filter(Boolean)
-        .join(", ")
-    : "—";
+  const addr = selectedLead.address || {};
+  const addressLine = [
+    addr.line1,
+    addr.line2,
+    [addr.city, addr.state, addr.postalCode].filter(Boolean).join(" "),
+  ]
+    .filter(Boolean)
+    .join(", ");
+
 
   return (
     <div
