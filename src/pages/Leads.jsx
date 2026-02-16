@@ -147,6 +147,20 @@ export default function Leads() {
     }
   }
 
+  function formatAddress(a) {
+    if (!a) return "—";
+    const parts = [
+      a.line1,
+      a.line2,
+      [a.city, a.state].filter(Boolean).join(", "),
+      a.postalCode,
+    ]
+      .filter(Boolean)
+      .join(" ");
+    return parts || "—";
+  }
+
+
   return (
     <div className="space-y-4">
       {/* Header card */}
@@ -306,7 +320,8 @@ export default function Leads() {
               <Field
                 className="sm:col-span-2"
                 label="Address"
-                value={formattedAddress}
+                value={
+                  formatAddress(selectedLead.address)}
               />
             </div>
 
