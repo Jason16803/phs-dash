@@ -9,6 +9,8 @@ import Login from "../pages/Login";
 import Dashboard from "../pages/Dashboard";
 import Customers from "../pages/Customers";
 import Jobs from "../pages/Jobs";
+import JobDetail from "../pages/JobDetail";
+import PriceBook from "../pages/PriceBook";
 import Leads from "../pages/Leads";
 import Invoices from "../pages/Invoices";
 import Settings from "../pages/Settings";
@@ -27,10 +29,12 @@ export default function AppRoutes() {
         }
       >
         <Route index element={<Dashboard />} />
-        <Route path="dashboard" element={<Dashboard />} /> {/* add this */}
+        <Route path="dashboard" element={<Dashboard />} />
         <Route path="customers" element={<Customers />} />
         <Route path="jobs" element={<Jobs />} />
+        <Route path="jobs/:id" element={<JobDetail />} />
         <Route path="leads" element={<Leads />} />
+        <Route path="pricebook" element={<PriceBook />} />
         <Route path="invoices" element={<Invoices />} />
         <Route path="settings" element={<Settings />} />
       </Route>

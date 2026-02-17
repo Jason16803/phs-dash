@@ -1,5 +1,8 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { createCustomer, createJob } from "../api/crm";
 import { listIntakes, createIntake, updateIntake } from "../api/intakeClient";
+
 
 const STATUS_OPTIONS = [
   "New",
@@ -17,9 +20,16 @@ const INTAKE_SOURCE_OPTIONS = [
   { value: "walk-in", label: "Walk-in" },
   { value: "other", label: "Other" },
 ];
+const TIME_BLOCKS = [
+    "9:00 AM - 11:00 AM",
+    "11:00 AM - 1:00 PM",
+    "1:00 PM - 3:00 PM",
+    "3:00 PM - 5:00 PM",
+];
 
 
 export default function Leads() {
+  const navigate = useNavigate();
   const [intakes, setIntakes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -36,7 +46,7 @@ export default function Leads() {
     name: "",
     email: "",
     phone: "",
-    zip: "",
+    contactMethod: "phone",
     address: { 
       line1: "", 
       line2: "", 
@@ -49,6 +59,25 @@ export default function Leads() {
     source: "dashboard",
   });
   const [adding, setAdding] = useState(false);
+
+  //booking flow states
+  const [showBook, setShowBook] = useState(false);
+  const [bookingLead, setBookingLead] = useState(null);
+  const [booking, setBooking] = useState(false);
+
+  const [bookForm, setBookForm] = useState({
+    name: "",
+    email: "",
+    phone: "",
+    address: { line1: "", line2: "", city: "", state: "GA", postalCode: "" },
+    date: "",
+    timeBlock: TIME_BLOCKS[0],
+    message: "",
+  });
+  //Time Block options
+  
+
+
 
   async function load() {
     setLoading(true);
@@ -109,22 +138,27 @@ export default function Leads() {
     setAdding(true);
 
     try {
+      const postalCode = addForm.address.postalCode.trim();
+
       await createIntake({
         name: addForm.name.trim(),
         email: addForm.email.trim().toLowerCase(),
         phone: addForm.phone.trim(),
-        zip: addForm.zip.trim() || addForm.address.postalCode.trim(), // mirror postalCode into zip
         address: {
           line1: addForm.address.line1.trim(),
           line2: addForm.address.line2.trim(),
           city: addForm.address.city.trim(),
           state: addForm.address.state.trim(),
-          postalCode: addForm.address.postalCode.trim(),
+          postalCode,
         },
+        // keep zip mirrored for legacy searching/compat
+        zip: postalCode,
         message: addForm.message.trim(),
         status: addForm.status,
         source: addForm.source,
       });
+
+
 
       setShowAdd(false);
       setAddForm({
@@ -147,18 +181,131 @@ export default function Leads() {
     }
   }
 
-  function formatAddress(a) {
-    if (!a) return "—";
-    const parts = [
-      a.line1,
-      a.line2,
-      [a.city, a.state].filter(Boolean).join(", "),
-      a.postalCode,
-    ]
-      .filter(Boolean)
-      .join(" ");
-    return parts || "—";
+  function formatAddress(a, zipFallback = "") {
+    const line1 = a?.line1?.trim();
+    const line2 = a?.line2?.trim();
+    const city = a?.city?.trim();
+    const state = a?.state?.trim();
+    const postal = (a?.postalCode?.trim() || zipFallback?.trim());
+
+    const cityState = [city, state].filter(Boolean).join(", ");
+    const parts = [line1, line2, cityState, postal].filter(Boolean);
+
+    return parts.length ? parts.join(" ") : "—";
   }
+
+
+  function openBookModal(lead) {
+    setBookingLead(lead);
+
+    const a = lead?.address || {};
+    const postal = a.postalCode || lead?.zip || "";
+
+    setBookForm({
+      name: lead?.name || "",
+      email: lead?.email || "",
+      phone: lead?.phone || "",
+      contactMethod: lead?.contactMethod || "phone",
+      address: {
+        line1: a.line1 || "",
+        line2: a.line2 || "",
+        city: a.city || "",
+        state: a.state || "GA",
+        postalCode: postal,
+      },
+      date: "",
+      timeBlock: TIME_BLOCKS[0],
+      message: lead?.message || "",
+    });
+
+    setShowBook(true);
+  }
+
+
+  function splitName(full = "") {
+    const parts = full.trim().split(/\s+/).filter(Boolean);
+    if (parts.length === 0) return { firstName: "Unknown", lastName: "Customer" };
+    if (parts.length === 1) return { firstName: parts[0], lastName: "Customer" };
+    return { firstName: parts[0], lastName: parts.slice(1).join(" ") };
+  }
+
+  async function submitBooking(e) {
+    e.preventDefault();
+    if (!bookingLead) return;
+
+    setError("");
+    setBooking(true);
+
+    try {
+      // 1) Customer
+      const { firstName, lastName } = splitName(bookForm.name);
+      const customerRes = await createCustomer({
+        firstName,
+        lastName,
+        email: (bookForm.email || "").trim().toLowerCase(),
+        phone: (bookForm.phone || "").trim(),
+        address: {
+          line1: bookForm.address.line1?.trim() || "",
+          line2: bookForm.address.line2?.trim() || "",
+          city: bookForm.address.city?.trim() || "",
+          state: bookForm.address.state?.trim() || "",
+          postalCode: bookForm.address.postalCode?.trim() || "",
+        },
+      });
+
+      const customer = customerRes?.data;
+      const customerId = customer?._id || customer?.id;
+      if (!customerId) throw new Error("Customer created but no id returned.");
+
+      // 2) Job (Estimate)
+      const title =
+        (bookForm.message || "").slice(0, 60) ||
+        `Service Estimate (${bookForm.address.postalCode || bookingLead.zip || "no zip"})`;
+
+      const scheduledDate = bookForm.date ? new Date(`${bookForm.date}T00:00:00`) : undefined;
+
+      const addressSummary = [
+        bookForm.address.line1,
+        bookForm.address.line2,
+        [bookForm.address.city, bookForm.address.state].filter(Boolean).join(", "),
+        bookForm.address.postalCode,
+      ].filter(Boolean).join(" ");
+
+      const notes = bookForm.message?.trim() || "";
+
+      await createJob({
+        customerId,
+        title,
+        status: "estimate",
+        notes,
+        scheduledDate, // REAL Date object
+      });
+
+
+      // 3) Update Intake
+      await updateIntake(bookingLead._id, {
+        status: "Converted", // or "Booked" if you want to keep legacy label
+        address: bookForm.address,
+        zip: bookForm.address?.postalCode || bookingLead.zip || "",
+        message: bookForm.message || bookingLead.message || "",
+        contactMethod: bookForm.contactMethod,
+      });
+
+      // close modals + refresh
+      setShowBook(false);
+      setBookingLead(null);
+      await load();
+
+      // optional: send him straight to Jobs tab
+      navigate("/admin/jobs");
+    } catch (err) {
+      setError(err?.response?.data?.message || err?.message || "Booking failed.");
+    } finally {
+      setBooking(false);
+    }
+  }
+
+
 
 
   return (
@@ -237,124 +384,338 @@ export default function Leads() {
                   <th className="px-3 py-2">Name</th>
                   <th className="px-3 py-2">Email</th>
                   <th className="px-3 py-2">Phone</th>
-                  <th className="px-3 py-2">ZIP</th>
                   <th className="px-3 py-2 w-[360px]">Message</th>
                   <th className="px-3 py-2">Status</th>
+                  <th className="px-3 py-2 w-24">Contact</th>
                   <th className="px-3 py-2 text-right">Actions</th>
                 </tr>
               </thead>
 
               <tbody>
-                {filtered.map((l) => (
-                  <tr key={l._id} className="bg-[#f9fafb] border border-[var(--phs-border)]">
-                    <td className={td()}>{l.createdAt ? new Date(l.createdAt).toLocaleString() : "—"}</td>
-                    <td className={td()}>{l.name || "—"}</td>
-                    <td className={td()}>{l.email || "—"}</td>
-                    <td className={td()}>{l.phone || "—"}</td>
-                    <td className={td()}>{l.zip || l.address?.postalCode || "—"}</td>
-                    <td className={td()}>
-                      <div className="max-w-[360px] truncate">{l.message || "—"}</div>
-                    </td>
+                {filtered.map((l) => {
+                  const isConverted = l.status === "Converted";
 
-                    <td className={td()}>
-                      <select
-                        value={l.status || "New"}
-                        onChange={(e) => setStatus(l._id, e.target.value)}
-                        className="rounded-lg border border-[var(--phs-border)] bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[var(--phs-primary)]"
-                      >
-                        {STATUS_OPTIONS.map((s) => (
-                          <option key={s} value={s}>
-                            {s}
-                          </option>
-                        ))}
-                      </select>
-                    </td>
+                  return (
+                    <tr key={l._id} className="bg-[#f9fafb] border border-[var(--phs-border)]">
+                      <td className={td()}>
+                        {l.createdAt ? new Date(l.createdAt).toLocaleString() : "—"}
+                      </td>
+                      <td className={td()}>{l.name || "—"}</td>
+                      <td className={td()}>{l.email || "—"}</td>
+                      <td className={td()}>{l.phone || "—"}</td>
 
-                    <td className={`${td()} text-right`}>
-                      <div className="flex justify-end gap-2">
-                        <button
-                          type="button"
-                          onClick={() => setSelectedLead(l)}
-                          className="rounded-xl border border-[var(--phs-border)] bg-white px-4 py-2 text-sm font-bold hover:bg-black/5"
+                      <td className={td()}>
+                        <div className="max-w-[360px] truncate">{l.message || "—"}</div>
+                      </td>
+
+                      <td className={td()}>
+                        <select
+                          value={l.status || "New"}
+                          onChange={(e) => setStatus(l._id, e.target.value)}
+                          className="rounded-lg border border-[var(--phs-border)] bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[var(--phs-primary)]"
                         >
-                          Contact
-                        </button>
+                          {STATUS_OPTIONS.map((s) => (
+                            <option key={s} value={s}>
+                              {s}
+                            </option>
+                          ))}
+                        </select>
+                      </td>
+                      <td className={td()}>
+                        {(l.contactMethod || "phone").replace(/^./, (c) => c.toUpperCase())}
+                      </td>
+                      <td className={`${td()} text-right`}>
+                        <div className="flex justify-end gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setSelectedLead(l)}
+                            className="rounded-xl border border-[var(--phs-border)] bg-white px-4 py-2 text-sm font-bold hover:bg-black/5"
+                          >
+                            {isConverted ? "View" : "Contact"}
+                          </button>
 
-                        <button
-                          type="button"
-                          onClick={() => setStatus(l._id, "Not interested")}
-                          className="rounded-xl border border-[var(--phs-border)] bg-white px-4 py-2 text-sm font-bold hover:bg-black/5"
-                        >
-                          Not interested
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                          <button
+                            type="button"
+                            onClick={() => setStatus(l._id, "Not interested")}
+                            className="rounded-xl border border-[var(--phs-border)] bg-white px-4 py-2 text-sm font-bold hover:bg-black/5"
+                          >
+                            Not interested
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
+
             </table>
           </div>
         )}
       </div>
 
-      {/* Contact Modal */}
+     {/* Contact Modal */}
       {selectedLead ? (
         <Modal title="Lead details" onClose={() => setSelectedLead(null)}>
-          <div className="space-y-4">
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <Field label="Name" value={selectedLead.name || "—"} />
-              <Field label="Status" value={selectedLead.status || "New"} />
-              <Field
-                className="sm:col-span-2"
-                label="Email"
-                value={selectedLead.email || "—"}
-                actionText="Copy"
-                onAction={() => copy(selectedLead.email)}
-              />
-              <Field
-                label="Phone"
-                value={selectedLead.phone || "—"}
-                actionText="Copy"
-                onAction={() => copy(selectedLead.phone)}
-              />
-              <Field
-                className="sm:col-span-2"
-                label="Address"
-                value={
-                  formatAddress(selectedLead.address)}
-              />
-            </div>
+          {(() => {
+            const isConverted = selectedLead.status === "Converted";
 
-            <div>
-              <div className="text-xs font-bold text-[var(--phs-muted)]">Message</div>
-              <div className="mt-1 whitespace-pre-wrap rounded-xl border border-[var(--phs-border)] bg-white p-3 text-sm text-[var(--phs-text)]">
-                {selectedLead.message || "—"}
+            return (
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <Field label="Name" value={selectedLead.name || "—"} />
+                  <Field label="Status" value={selectedLead.status || "New"} />
+                  <Field
+                    className="sm:col-span-2"
+                    label="Email"
+                    value={selectedLead.email || "—"}
+                    actionText="Copy"
+                    onAction={() => copy(selectedLead.email)}
+                  />
+                  <Field
+                    label="Phone"
+                    value={selectedLead.phone || "—"}
+                    actionText="Copy"
+                    onAction={() => copy(selectedLead.phone)}
+                  />
+                  <Field
+                    className="sm:col-span-2"
+                    label="Address"
+                    value={formatAddress(selectedLead.address, selectedLead.zip)}
+                  />
+                  <Field
+                    className="sm:col-span-1"
+                    label="Preferred contact"
+                    value={(selectedLead.contactMethod || "phone").toUpperCase()}
+                  />
+
+                </div>
+
+                <div>
+                  <div className="text-xs font-bold text-[var(--phs-muted)]">Message</div>
+                  <div className="mt-1 whitespace-pre-wrap rounded-xl border border-[var(--phs-border)] bg-white p-3 text-sm text-[var(--phs-text)]">
+                    {selectedLead.message || "—"}
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap gap-2 justify-end">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      openBookModal(selectedLead);
+                      setSelectedLead(null); // close contact modal
+                    }}
+                    disabled={isConverted}
+                    className="rounded-xl bg-[var(--phs-primary)] px-4 py-2 text-sm font-extrabold text-white hover:opacity-90 disabled:opacity-60 disabled:cursor-not-allowed"
+                  >
+                    {isConverted ? "Already Converted" : "Book / Convert"}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setStatus(selectedLead._id, "Contacted");
+                      setSelectedLead(null);
+                    }}
+                    disabled={isConverted} // optional — remove if you still want edits after conversion
+                    className="rounded-xl bg-[var(--phs-primary)] px-4 py-2 text-sm font-extrabold text-white hover:opacity-90 disabled:opacity-60 disabled:cursor-not-allowed"
+                  >
+                    Mark Contacted
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setSelectedLead(null)}
+                    className="rounded-xl border border-[var(--phs-border)] bg-white px-4 py-2 text-sm font-bold hover:bg-black/5"
+                  >
+                    Close
+                  </button>
+                </div>
               </div>
-            </div>
-
-            <div className="flex flex-wrap gap-2 justify-end">
-              <button
-                type="button"
-                onClick={() => {
-                  setStatus(selectedLead._id, "Contacted");
-                  setSelectedLead(null);
-                }}
-                className="rounded-xl bg-[var(--phs-primary)] px-4 py-2 text-sm font-extrabold text-white hover:opacity-90"
-              >
-                Mark Contacted
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setSelectedLead(null)}
-                className="rounded-xl border border-[var(--phs-border)] bg-white px-4 py-2 text-sm font-bold hover:bg-black/5"
-              >
-                Close
-              </button>
-            </div>
-          </div>
+            );
+          })()}
         </Modal>
       ) : null}
+
+
+      {/* Booking Modal */}
+      {showBook && bookingLead ? (
+        <Modal title="Schedule estimate" onClose={() => setShowBook(false)}>
+          <form onSubmit={submitBooking} className="space-y-6">
+          {/* Contact Information */}
+          <div>
+            <div className="mb-2 text-xs font-extrabold uppercase tracking-wide text-[var(--phs-primary-dark)]">
+              Contact Information
+            </div>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <Input
+                label="Name"
+                value={bookForm.name}
+                onChange={(v) => setBookForm((p) => ({ ...p, name: v }))}
+                required
+              />
+              <Input
+                label="Email"
+                value={bookForm.email}
+                onChange={(v) => setBookForm((p) => ({ ...p, email: v }))}
+                type="email"
+              />
+              <Input
+                label="Phone"
+                value={bookForm.phone}
+                onChange={(v) => setBookForm((p) => ({ ...p, phone: v }))}
+                required
+              />
+              <label className="block">
+                <div className="text-xs font-bold text-[var(--phs-muted)]">Contact method</div>
+                <select
+                  value={bookForm.contactMethod}
+                  onChange={(e) => setBookForm((p) => ({ ...p, contactMethod: e.target.value }))}
+                  className="mt-1 h-10 w-full rounded-xl border border-[var(--phs-border)] bg-white px-3 text-sm outline-none focus:ring-2 focus:ring-[var(--phs-primary)]"
+                  required
+                >
+                  <option value="phone">Phone</option>
+                  <option value="email">Email</option>
+                  <option value="both">Both</option>
+                </select>
+              </label>
+
+            </div>
+          </div>
+
+          {/* Schedule time & date */}
+          <div>
+            <div className="mb-2 text-xs font-extrabold uppercase tracking-wide text-[var(--phs-primary-dark)]">
+              Schedule time &amp; date
+            </div>
+
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <label className="block">
+                <div className="text-xs font-bold text-[var(--phs-muted)]">Date</div>
+                <input
+                  type="date"
+                  value={bookForm.date}
+                  onChange={(e) => setBookForm((p) => ({ ...p, date: e.target.value }))}
+                  required
+                  className="mt-1 h-10 w-full rounded-xl border border-[var(--phs-border)] bg-white px-3 text-sm outline-none focus:ring-2 focus:ring-[var(--phs-primary)]"
+                />
+              </label>
+
+              <label className="block">
+                <div className="text-xs font-bold text-[var(--phs-muted)]">Time frame</div>
+                <select
+                  value={bookForm.timeBlock}
+                  onChange={(e) =>
+                    setBookForm((p) => ({ ...p, timeBlock: e.target.value }))
+                  }
+                  required
+                  className="mt-1 h-10 w-full rounded-xl border border-[var(--phs-border)] bg-white px-3 text-sm outline-none focus:ring-2 focus:ring-[var(--phs-primary)]"
+                >
+                  {TIME_BLOCKS.map((t) => (
+                    <option key={t} value={t}>
+                      {t}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+          </div>
+
+          {/* Address */}
+          <div>
+            <div className="mb-2 text-xs font-extrabold uppercase tracking-wide text-[var(--phs-primary-dark)]">
+              Address
+            </div>
+
+            {/* Row 1: line1 | line2 */}
+            <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <Input
+                className="sm:col-span-2"
+                label="Address line 1"
+                value={bookForm.address.line1}
+                onChange={(v) =>
+                  setBookForm((p) => ({ ...p, address: { ...p.address, line1: v } }))
+                }
+                required
+              />
+              <Input
+                className="sm:col-span-2"
+                label="Address line 2"
+                value={bookForm.address.line2}
+                onChange={(v) =>
+                  setBookForm((p) => ({ ...p, address: { ...p.address, line2: v } }))
+                }
+                required={false}
+              />
+            </div>
+
+            {/* Row 2: city | state | postal */}
+            <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <Input
+                label="City"
+                value={bookForm.address.city}
+                onChange={(v) =>
+                  setBookForm((p) => ({ ...p, address: { ...p.address, city: v } }))
+                }
+                required
+              />
+              <Input
+                label="State"
+                value={bookForm.address.state}
+                onChange={(v) =>
+                  setBookForm((p) => ({ ...p, address: { ...p.address, state: v } }))
+                }
+                required
+              />
+              <Input
+                label="Postal Code"
+                value={bookForm.address.postalCode}
+                onChange={(v) =>
+                  setBookForm((p) => ({ ...p, address: { ...p.address, postalCode: v } }))
+                }
+                required
+              />
+            </div>
+          </div>
+
+
+          {/* Message */}
+          <div>
+            <div className="mb-2 text-xs font-extrabold uppercase tracking-wide text-[var(--phs-primary-dark)]">
+              Message
+            </div>
+
+            <textarea
+              value={bookForm.message}
+              onChange={(e) => setBookForm((p) => ({ ...p, message: e.target.value }))}
+              rows={5}
+              className="w-full rounded-xl border border-[var(--phs-border)] bg-white p-3 text-sm outline-none focus:ring-2 focus:ring-[var(--phs-primary)]"
+              placeholder="Notes for the job (optional)"
+            />
+          </div>
+
+          {/* Actions */}
+          <div className="flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => setShowBook(false)}
+              className="rounded-xl border border-[var(--phs-border)] bg-white px-4 py-2 text-sm font-bold hover:bg-black/5"
+            >
+              Cancel
+            </button>
+
+            <button
+              type="submit"
+              disabled={booking}
+              className="rounded-xl bg-[var(--phs-primary)] px-4 py-2 text-sm font-extrabold text-white hover:opacity-90 disabled:opacity-60"
+            >
+              {booking ? "Booking..." : "Create estimate job"}
+            </button>
+          </div>
+        </form>
+
+        </Modal>
+      ) : null}
+
 
       {/* Add Lead Modal */}
       {showAdd ? (
@@ -526,6 +887,7 @@ function Field({ label, value, actionText, onAction, className = "" }) {
   );
 }
 
+// The Input component is used in the Add Lead form for consistent styling
 function Input({ label, value, onChange, type = "text", required = false }) {
   return (
     <label className="block">

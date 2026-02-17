@@ -9,12 +9,12 @@ function SideLink({ to, end, children }) {
       end={end}
       className={({ isActive }) =>
         [
-          "block rounded-[var(--phs-radius-pill)] px-3 py-2 text-sm font-medium transition",
+          "block rounded-(--phs-radius-pill) px-3 py-2 text-sm font-medium transition",
           isActive
-            ? "bg-[var(--phs-primary-soft)] text-[var(--phs-primary)] ring-1 ring-[rgba(11,125,125,0.25)]"
-            : "text-[var(--phs-text)] hover:bg-black/5",
+            ? "bg-(--phs-primary-soft) text-(--phs-primary) ring-1 ring-[rgba(11,125,125,0.25)]"
+            : "text-(--phs-text) hover:bg-black/5",
         ].join(" ")
-      }
+      } 
     >
       {children}
     </NavLink>
@@ -30,17 +30,17 @@ export default function AdminLayout() {
   };
 
   return (
-    <div className="min-h-screen bg-[var(--phs-bg)] text-[var(--phs-text)]">
+    <div className="min-h-screen bg-(--phs-bg) text-(--phs-text)">
       <div className="flex min-h-screen">
         {/* Sidebar */}
-        <aside className="w-[260px] shrink-0 border-r border-[var(--phs-border)] bg-[var(--phs-surface)] p-4">
+        <aside className="w-65 shrink-0 border-r border-(--phs-border) bg-(--phs-surface) p-4">
           <div className="mb-4 flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-[var(--phs-radius-pill)] bg-[var(--phs-primary-soft)] font-extrabold text-[var(--phs-primary)]">
+            <div className="flex h-10 w-10 items-center justify-center rounded-(--phs-radius-pill) bg-(--phs-primary-soft) font-extrabold text-(--phs-primary)">
               P
             </div>
             <div>
               <div className="font-extrabold leading-tight">PHS-dash</div>
-              <div className="text-xs text-[var(--phs-muted)]">Services Dashboard</div>
+              <div className="text-xs text-(--phs-muted)">Services Dashboard</div>
             </div>
           </div>
 
@@ -51,13 +51,14 @@ export default function AdminLayout() {
             <SideLink to="/admin/customers">Customers</SideLink>
             <SideLink to="/admin/leads">Leads</SideLink>
             <SideLink to="/admin/jobs">Jobs</SideLink>
+            <SideLink to="/admin/pricebook">Price Book</SideLink>
             <SideLink to="/admin/invoices">Invoices</SideLink>
             <SideLink to="/admin/settings">Settings</SideLink>
 
             <button
               type="button"
               onClick={logout}
-              className="mt-2 rounded-[var(--phs-radius-pill)] px-3 py-2 text-left text-sm font-medium text-[var(--phs-text)] hover:bg-black/5"
+              className="mt-2 rounded-(--phs-radius-pill) px-3 py-2 text-left text-sm font-medium text-(--phs-text) hover:bg-black/5"
             >
               Logout
             </button>
