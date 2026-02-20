@@ -312,11 +312,13 @@ export default function Leads() {
     <div className="space-y-4">
       {/* Header card */}
       <div className="rounded-[var(--phs-radius-lg)] border border-[var(--phs-border)] bg-[var(--phs-surface)] p-4 shadow-[var(--phs-shadow-soft)]">
-        <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-          <div>
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          {/* LEFT */}
+          <div className="min-w-0">
             <div className="text-lg font-extrabold">Leads</div>
-            <div className="mt-1 text-sm text-[var(--phs-muted)]">
-              Intake messages captured for your tenant. Review, contact, and convert.
+
+            <div className="mt-1 max-w-[60ch] text-sm text-[var(--phs-muted)]">
+              Intake messages captured for your business. Review, contact, and convert.
             </div>
 
             {error ? (
@@ -324,7 +326,8 @@ export default function Leads() {
             ) : null}
           </div>
 
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          {/* RIGHT */}
+          <div className="flex w-full flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center lg:w-auto lg:justify-end">
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}

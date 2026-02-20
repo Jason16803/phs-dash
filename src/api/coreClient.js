@@ -31,5 +31,10 @@ export async function coreMe() {
   return res.data;
 }
 
+export async function coreUpdateMe(payload) {
+  const res = await coreClient.patch("/api/v1/me", payload);
+  return res.data;
+}
+
 console.log("CORE BASE URL:", import.meta.env.VITE_CORE_BASE_URL);
 console.log("TENANT ID:", import.meta.env.VITE_TENANT_ID);

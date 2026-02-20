@@ -7,6 +7,8 @@ function getToken() {
 
 export default function Customers() {
   const [customers, setCustomers] = useState([]);
+  const [selectedCustomer, setSelectedCustomer] = useState(null);
+  const [showActions, setShowActions] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -18,7 +20,7 @@ export default function Customers() {
   const [addressLine1, setAddressLine1] = useState("");
   const [city, setCity] = useState("");
   const [state, setState] = useState("");
-  const [zip, setZip] = useState("");
+  const [postalCode, setPostalCode] = useState("");
 
   // ui helpers
   const [query, setQuery] = useState("");
@@ -61,7 +63,7 @@ export default function Customers() {
           line1: addressLine1,
           city,
           state,
-          zip,
+          postalCode,
         },
       };
 
@@ -86,6 +88,32 @@ export default function Customers() {
           e?.message ||
           "Failed to create customer (check API payload/route)."
       );
+    }
+  }
+
+  function openActions(customer) {
+    setSelectedCustomer(customer);
+    setShowActions(true);
+  }
+
+  function closeActions() {
+    setShowActions(false);
+    setSelectedCustomer(null);
+  }
+
+  async function deleteCustomer(customerId) {
+    if (!customerId) return;
+    const ok = window.confirm("Delete this customer? This cannot be undone.");
+    if (!ok) return;
+
+    try {
+      await coreClient.delete(`/api/v1/customers/${customerId}`, {
+        headers: { Authorization: `Bearer ${getToken()}` },
+      });
+      closeActions();
+      fetchCustomers();
+    } catch (e) {
+      setError(e?.response?.data?.message || e?.message || "Failed to delete customer.");
     }
   }
 
@@ -145,7 +173,7 @@ export default function Customers() {
           >
             <Field label="City" value={city} setValue={setCity} />
             <Field label="State" value={state} setValue={setState} placeholder="GA" />
-            <Field label="ZIP" value={zip} setValue={setZip} placeholder="31601" />
+            <Field label="ZIP" value={postalCode} setValue={setPostalCode} placeholder="31601" />
           </div>
 
           <button
@@ -219,11 +247,24 @@ export default function Customers() {
         ) : (
           <div style={{ display: "grid", gap: 10 }}>
             {filtered.map((c) => (
-              <CustomerRow key={c._id || c.id} customer={c} />
+              <CustomerRow
+                key={c._id || c.id}
+                customer={c}
+                onOpen={() => openActions(c)}
+              />
             ))}
           </div>
         )}
       </div>
+      {showActions && selectedCustomer ? (
+        <CustomerActionsModal
+          customer={selectedCustomer}
+          onClose={closeActions}
+          onCreateEstimate={() => alert("Create estimate (wire later)")}
+          onEdit={() => alert("Edit customer (wire later)")}
+          onDelete={() => deleteCustomer(selectedCustomer._id || selectedCustomer.id)}
+        />
+      ) : null}
     </div>
   );
 }
@@ -257,7 +298,7 @@ function Field({
   );
 }
 
-function CustomerRow({ customer }) {
+function CustomerRow({ customer, onOpen }) {
   const name =
     `${customer.firstName || ""} ${customer.lastName || ""}`.trim() ||
     customer.name ||
@@ -266,20 +307,19 @@ function CustomerRow({ customer }) {
   const email = customer.email || "—";
   const phone = customer.phone || "—";
 
-  const addr = selectedLead.address || {};
+  const addr = customer.address || {};
   const addressLine = [
     addr.line1,
     addr.line2,
-    [addr.city, addr.state, addr.postalCode].filter(Boolean).join(" "),
+    [addr.city, addr.state, (addr.zip || addr.postalCode)].filter(Boolean).join(" "),
   ]
     .filter(Boolean)
     .join(", ");
 
-
   return (
     <div
       style={{
-        padding: 12,
+        padding: "10px 14px",
         borderRadius: 14,
         border: "1px solid var(--phs-border)",
         background: "#f9fafb",
@@ -287,23 +327,162 @@ function CustomerRow({ customer }) {
         gap: 6,
       }}
     >
-      <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
-        <div style={{ fontWeight: 800 }}>{name}</div>
-        <div style={{ color: "var(--phs-muted)", fontSize: 12 }}>
-          {customer.createdAt ? new Date(customer.createdAt).toLocaleString() : ""}
+      <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center" }}>
+        <div style={{ fontWeight: 900 }}>{name}</div>
+
+        <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+          <div style={{ color: "var(--phs-muted)", fontSize: 12 }}>
+            {customer.createdAt ? new Date(customer.createdAt).toLocaleString() : ""}
+          </div>
+
+          <button
+            type="button"
+            onClick={onOpen}
+            style={{
+              padding: "8px 12px",
+              borderRadius: "var(--phs-radius-pill)",
+              border: "1px solid var(--phs-border)",
+              background: "white",
+              cursor: "pointer",
+              fontWeight: 800,
+              fontSize: 12,
+            }}
+          >
+            Actions
+          </button>
         </div>
       </div>
 
       <div style={{ display: "flex", gap: 14, flexWrap: "wrap", fontSize: 13 }}>
-        <span>
-          <strong>Email:</strong> {email}
-        </span>
-        <span>
-          <strong>Phone:</strong> {phone}
-        </span>
-        <span>
-          <strong>Address:</strong> {addr}
-        </span>
+        <span><strong>Email:</strong> {email}</span>
+        <span><strong>Phone:</strong> {phone}</span>
+        <span><strong>Address:</strong> {addressLine || "—"}</span>
+      </div>
+    </div>
+  );
+}
+
+function CustomerActionsModal({ customer, onClose, onCreateEstimate, onEdit, onDelete }) {
+  const name =
+    `${customer.firstName || ""} ${customer.lastName || ""}`.trim() ||
+    customer.name ||
+    "Unnamed customer";
+
+  const addr = customer.address || {};
+  const addressLine = [
+    addr.line1,
+    addr.line2,
+    [addr.city, addr.state, (addr.zip || addr.postalCode)].filter(Boolean).join(" "),
+  ]
+    .filter(Boolean)
+    .join(", ");
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+      style={{
+        position: "fixed",
+        inset: 0,
+        background: "rgba(0,0,0,0.35)",
+        display: "grid",
+        placeItems: "center",
+        padding: 16,
+        zIndex: 9999,
+      }}
+    >
+      <div
+        className="card"
+        style={{
+          width: "min(720px, 100%)",
+          padding: 16,
+          borderRadius: 18,
+          background: "white",
+        }}
+      >
+        <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center" }}>
+          <div>
+            <div style={{ fontWeight: 950, fontSize: 16 }}>{name}</div>
+            <div style={{ color: "var(--phs-muted)", fontSize: 13, marginTop: 2 }}>
+              {customer.email || "—"} • {customer.phone || "—"}
+            </div>
+            <div style={{ color: "var(--phs-muted)", fontSize: 13, marginTop: 2 }}>
+              {addressLine || "—"}
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={onClose}
+            style={{
+              border: "1px solid var(--phs-border)",
+              background: "white",
+              borderRadius: 999,
+              padding: "8px 12px",
+              cursor: "pointer",
+              fontWeight: 900,
+            }}
+          >
+            Close
+          </button>
+        </div>
+
+        <div style={{ marginTop: 14, display: "flex", gap: 10, flexWrap: "wrap" }}>
+          <button
+            type="button"
+            onClick={onCreateEstimate}
+            style={{
+              padding: "10px 14px",
+              borderRadius: "var(--phs-radius-pill)",
+              border: "none",
+              background: "var(--phs-primary)",
+              color: "white",
+              cursor: "pointer",
+              fontWeight: 900,
+            }}
+          >
+            Create estimate
+          </button>
+
+          <button
+            type="button"
+            onClick={onEdit}
+            style={{
+              padding: "10px 14px",
+              borderRadius: "var(--phs-radius-pill)",
+              border: "1px solid var(--phs-border)",
+              background: "white",
+              cursor: "pointer",
+              fontWeight: 900,
+            }}
+          >
+            Edit customer
+          </button>
+
+          <button
+            type="button"
+            onClick={onDelete}
+            style={{
+              padding: "10px 14px",
+              borderRadius: "var(--phs-radius-pill)",
+              border: "1px solid rgba(185, 28, 28, 0.35)",
+              background: "rgba(185, 28, 28, 0.08)",
+              color: "#991b1b",
+              cursor: "pointer",
+              fontWeight: 900,
+              marginLeft: "auto",
+            }}
+          >
+            Delete customer
+          </button>
+        </div>
+
+        <div style={{ marginTop: 10, color: "var(--phs-muted)", fontSize: 12 }}>
+          Tip: If the same person appears twice, delete the extra record for now. (Later we can add merge.)
+        </div>
       </div>
     </div>
   );

@@ -14,6 +14,7 @@ import PriceBook from "../pages/PriceBook";
 import Leads from "../pages/Leads";
 import Invoices from "../pages/Invoices";
 import Settings from "../pages/Settings";
+import Calendar from "../pages/Calendar";
 
 export default function AppRoutes() {
   return (
@@ -30,6 +31,7 @@ export default function AppRoutes() {
       >
         <Route index element={<Dashboard />} />
         <Route path="dashboard" element={<Dashboard />} />
+        <Route path="calendar" element={<Calendar />} />
         <Route path="customers" element={<Customers />} />
         <Route path="jobs" element={<Jobs />} />
         <Route path="jobs/:id" element={<JobDetail />} />

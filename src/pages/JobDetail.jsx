@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { coreClient } from "../api/coreClient";
+import PriceBookBrowser from "../components/PriceBookBrowser";
 
 function getToken() {
   return localStorage.getItem("sfg_access_token");
@@ -65,6 +66,25 @@ export default function JobDetail() {
   const [scheduledDay, setScheduledDay] = useState(""); // YYYY-MM-DD
   const [timeFrame, setTimeFrame] = useState("");       // label
 
+  // estimates
+  const [estimate, setEstimate] = useState(null);
+  const [estLoading, setEstLoading] = useState(false);
+  const [estError, setEstError] = useState("");
+
+  // price book picker
+  const [pbItems, setPbItems] = useState([]);
+  const [pbLoading, setPbLoading] = useState(false);
+  const [pbError, setPbError] = useState("");
+
+  // picker UI
+  const [activeType, setActiveType] = useState("service"); // service | material
+  const [path, setPath] = useState([]); // category path segments
+
+  const isLocked =
+  status === "completed" ||
+  status === "archived" ||
+  status === "canceled";
+
 
   async function fetchJob() {
     setLoading(true);
@@ -75,6 +95,8 @@ export default function JobDetail() {
       });
       const data = res.data?.data || res.data?.data?.job || res.data?.data; // flexible
       setJob(data);
+
+      await fetchOrCreateEstimateForJob(data);
 
       setTitle(data?.title || "");
       setStatus(data?.status || "created");
@@ -162,9 +184,145 @@ export default function JobDetail() {
     }
   }
 
+  function splitPath(cat) {
+    return String(cat || "")
+      .split(">")
+      .map((s) => s.trim())
+      .filter(Boolean);
+  }
+
+  function buildTree(items) {
+    const root = { children: new Map(), items: [] };
+
+    for (const it of items) {
+      const parts = splitPath(it.category);
+      let node = root;
+      for (const p of parts) {
+        if (!node.children.has(p)) node.children.set(p, { children: new Map(), items: [] });
+        node = node.children.get(p);
+      }
+      node.items.push(it);
+    }
+    return root;
+  }
+
+  function money(n) {
+    const x = Number(n || 0);
+    return `$${x.toFixed(2)}`;
+  }
+
+  async function fetchOrCreateEstimateForJob(jobDoc) {
+    if (!jobDoc?._id) return;
+
+    setEstLoading(true);
+    setEstError("");
+
+    try {
+      const estimateId = jobDoc?.estimateId?._id || jobDoc?.estimateId || null;
+
+      // 1) already wired -> fetch by id
+      if (estimateId) {
+        const res = await coreClient.get(`/api/v1/estimates/${estimateId}`, {
+          headers: { Authorization: `Bearer ${getToken()}` },
+        });
+
+        setEstimate(res.data?.data || null);
+        return;
+      }
+
+      // 2) not wired -> create estimate (backend will attach estimateId to the job)
+      const createRes = await coreClient.post(
+        "/api/v1/estimates",
+        {
+          title: `${jobDoc.title || "Job"} Estimate`,
+          jobId: jobDoc._id,
+          customerId: jobDoc?.customerId?._id || jobDoc?.customerId || null,
+          taxRate: 0,
+          status: "draft",
+        },
+        { headers: { Authorization: `Bearer ${getToken()}` } }
+      );
+
+      setEstimate(createRes.data?.data || null);
+
+      // 3) refresh job so UI sees estimateId populated next render
+      // await fetchJob();
+    } catch (e) {
+      setEstimate(null);
+      setEstError(e?.response?.data?.message || e?.message || "Failed to load estimate.");
+    } finally {
+      setEstLoading(false);
+    }
+  }
+
+  async function fetchPriceBook() {
+    setPbLoading(true);
+    setPbError("");
+    try {
+      const res = await coreClient.get("/api/v1/price-book", {
+        headers: { Authorization: `Bearer ${getToken()}` },
+        params: { active: "true", limit: 500 },
+      });
+      setPbItems(res.data?.data?.items || []);
+    } catch (e) {
+      setPbItems([]);
+      setPbError(e?.response?.data?.message || e?.message || "Failed to load price book.");
+    } finally {
+      setPbLoading(false);
+    }
+  }
+
+  async function addFromPriceBook(priceBookItemId, qty = 1) {
+    if (!estimate?._id) return;
+
+    setEstError("");
+    try {
+      const res = await coreClient.post(
+        `/api/v1/estimates/${estimate._id}/items/from-pricebook`,
+        { priceBookItemId, qty },
+        { headers: { Authorization: `Bearer ${getToken()}` } }
+      );
+      setEstimate(res.data?.data); // routes return full estimate
+    } catch (e) {
+      setEstError(e?.response?.data?.message || e?.message || "Failed to add item.");
+    }
+  }
+
+  async function updateLineItem(itemId, patch) {
+    if (!estimate?._id) return;
+
+    setEstError("");
+    try {
+      const res = await coreClient.patch(
+        `/api/v1/estimates/${estimate._id}/items/${itemId}`,
+        patch,
+        { headers: { Authorization: `Bearer ${getToken()}` } }
+      );
+      setEstimate(res.data?.data);
+    } catch (e) {
+      setEstError(e?.response?.data?.message || e?.message || "Failed to update line item.");
+    }
+  }
+
+  async function removeLineItem(itemId) {
+    if (!estimate?._id) return;
+    if (!confirm("Remove this item?")) return;
+
+    setEstError("");
+    try {
+      const res = await coreClient.delete(
+        `/api/v1/estimates/${estimate._id}/items/${itemId}`,
+        { headers: { Authorization: `Bearer ${getToken()}` } }
+      );
+      setEstimate(res.data?.data);
+    } catch (e) {
+      setEstError(e?.response?.data?.message || e?.message || "Failed to remove item.");
+    }
+  }
 
   useEffect(() => {
     fetchJob();
+    fetchPriceBook();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
@@ -507,12 +665,334 @@ export default function JobDetail() {
   </div>
 
   {/* Line items placeholder stays below */}
-  <div className="card">
-    <div style={{ fontWeight: 900 }}>Line items</div>
-    <div style={{ color: "var(--phs-muted)", fontSize: 13, marginTop: 4 }}>
-      Next: services/materials + price book picker (Housecall Pro style).
+  <div
+    style={{
+      display: "grid",
+      gap: 14,
+      gridTemplateColumns: "minmax(320px, 420px) 1fr",
+      alignItems: "start",
+    }}
+  >
+    {/* LEFT: Price book picker */}
+    {/* <div className="card" style={{ display: "grid", gap: 10 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div style={{ fontWeight: 900 }}>Add items</div>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button
+            type="button"
+            onClick={() => { setActiveType("service"); setPath([]); }}
+            style={{
+              padding: "6px 10px",
+              borderRadius: 999,
+              border: activeType === "service" ? "none" : "1px solid var(--phs-border)",
+              background: activeType === "service" ? "var(--phs-primary)" : "white",
+              color: activeType === "service" ? "white" : "var(--phs-text)",
+              fontWeight: 900,
+              cursor: "pointer",
+            }}
+          >
+            Services
+          </button>
+          <button
+            type="button"
+            onClick={() => { setActiveType("material"); setPath([]); }}
+            style={{
+              padding: "6px 10px",
+              borderRadius: 999,
+              border: activeType === "material" ? "none" : "1px solid var(--phs-border)",
+              background: activeType === "material" ? "var(--phs-primary)" : "white",
+              color: activeType === "material" ? "white" : "var(--phs-text)",
+              fontWeight: 900,
+              cursor: "pointer",
+            }}
+          >
+            Materials
+          </button>
+        </div>
+      </div>
+
+      {pbError ? <div style={{ color: "#b91c1c", fontSize: 13 }}>{pbError}</div> : null}
+      {pbLoading ? (
+        <div style={{ color: "var(--phs-muted)", fontSize: 13 }}>Loading price book…</div>
+      ) : null}
+
+      {(() => {
+        const filtered = (pbItems || []).filter((i) => (i.type || "service") === activeType);
+        const tree = buildTree(filtered);
+
+        // walk to current path node
+        let node = tree;
+        for (const seg of path) {
+          node = node.children.get(seg) || { children: new Map(), items: [] };
+        }
+
+        const crumbs = ["All", ...path];
+
+        return (
+          <div style={{ display: "grid", gap: 10 }}>
+            {/* Breadcrumb 
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", fontSize: 13 }}>
+              {crumbs.map((c, idx) => (
+                <button
+                  key={`${c}-${idx}`}
+                  type="button"
+                  onClick={() => setPath(idx === 0 ? [] : path.slice(0, idx))}
+                  style={{
+                    border: "1px solid var(--phs-border)",
+                    background: "white",
+                    padding: "6px 10px",
+                    borderRadius: 999,
+                    cursor: "pointer",
+                    fontWeight: 900,
+                    color: idx === crumbs.length - 1 ? "var(--phs-text)" : "var(--phs-muted)",
+                  }}
+                >
+                  {c}
+                </button>
+              ))}
+            </div>
+
+            {/* Categories 
+            {node.children.size ? (
+              <div style={{ display: "grid", gap: 8 }}>
+                {Array.from(node.children.keys()).sort().map((name) => (
+                  <button
+                    key={name}
+                    type="button"
+                    onClick={() => setPath((p) => [...p, name])}
+                    style={{
+                      textAlign: "left",
+                      padding: "10px 12px",
+                      borderRadius: 14,
+                      border: "1px solid var(--phs-border)",
+                      background: "var(--phs-surface)",
+                      cursor: "pointer",
+                      fontWeight: 900,
+                    }}
+                  >
+                    {name}
+                  </button>
+                ))}
+              </div>
+            ) : null}
+
+            {/* Items at this node 
+            {node.items?.length ? (
+              <div style={{ display: "grid", gap: 8 }}>
+                {node.items
+                  .slice()
+                  .sort((a, b) => (a.name || "").localeCompare(b.name || ""))
+                  .map((it) => (
+                    <div
+                      key={it._id}
+                      style={{
+                        padding: 12,
+                        borderRadius: 14,
+                        border: "1px solid var(--phs-border)",
+                        background: "white",
+                        display: "grid",
+                        gap: 6,
+                      }}
+                    >
+                      <div style={{ fontWeight: 900 }}>{it.name}</div>
+                      <div style={{ color: "var(--phs-muted)", fontSize: 13 }}>
+                        {it.description || "—"}
+                      </div>
+
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
+                        <div style={{ fontWeight: 900, fontSize: 13 }}>
+                          {money(it.price)} <span style={{ color: "var(--phs-muted)", fontWeight: 800 }}>/ {it.unit}</span>
+                        </div>
+
+                        <button
+                          type="button"
+                          disabled={isLocked}
+                          onClick={() => addFromPriceBook(it._id, 1)}
+                          style={{
+                            padding: "8px 12px",
+                            borderRadius: 999,
+                            border: "none",
+                            background: "var(--phs-primary)",
+                            color: "white",
+                            cursor: isLocked ? "not-allowed" : "pointer",
+                            fontWeight: 900,
+                            opacity: isLocked ? 0.6 : 1,
+                          }}
+                          title={isLocked ? "Estimate is locked" : ""}
+                        >
+                          Add
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+              </div>
+            ) : (
+              <div style={{ color: "var(--phs-muted)", fontSize: 13 }}>
+                {node.children.size ? "Pick a category…" : "No items here."}
+              </div>
+            )}
+          </div>
+        );
+      })()}
+    </div> */}
+
+    {/* New Left */}
+    <PriceBookBrowser
+      items={pbItems}
+      loading={pbLoading}
+      error={pbError}
+      onAdd={addFromPriceBook}
+      disabled={isLocked}
+    />
+
+    {/* RIGHT: Estimate line items */}
+    <div className="card" style={{ display: "grid", gap: 10 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
+        <div>
+          <div style={{ fontWeight: 900 }}>Estimate</div>
+          <div style={{ color: "var(--phs-muted)", fontSize: 13, marginTop: 4 }}>
+            {isLocked ? "Locked (job completed)" : "Editable"}
+          </div>
+        </div>
+
+        <div style={{ fontWeight: 900 }}>
+          Total: {money(estimate?.totals?.total)}
+        </div>
+      </div>
+
+      {estError ? <div style={{ color: "#b91c1c", fontSize: 13 }}>{estError}</div> : null}
+      {estLoading ? <div style={{ color: "var(--phs-muted)", fontSize: 13 }}>Loading estimate…</div> : null}
+
+      {!estimate ? (
+        <div style={{ color: "var(--phs-muted)", fontSize: 13 }}>
+          No estimate loaded.
+        </div>
+      ) : (estimate.items?.length ? (
+        <div style={{ display: "grid", gap: 8 }}>
+          {estimate.items.map((li) => (
+            <div
+              key={li._id}
+              style={{
+                padding: 12,
+                borderRadius: 14,
+                border: "1px solid var(--phs-border)",
+                background: "var(--phs-surface)",
+                display: "grid",
+                gap: 8,
+              }}
+            >
+              <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
+                <div style={{ fontWeight: 900 }}>
+                  {li.name}{" "}
+                  <span style={{ color: "var(--phs-muted)", fontWeight: 800 }}>
+                    • {li.type} • {li.unit}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  disabled={isLocked}
+                  onClick={() => removeLineItem(li._id)}
+                  style={{
+                    border: "1px solid rgba(185,28,28,0.35)",
+                    background: "rgba(185,28,28,0.08)",
+                    color: "#991b1b",
+                    borderRadius: 999,
+                    padding: "6px 10px",
+                    fontWeight: 900,
+                    cursor: isLocked ? "not-allowed" : "pointer",
+                    opacity: isLocked ? 0.6 : 1,
+                  }}
+                >
+                  Remove
+                </button>
+              </div>
+
+              <div style={{ color: "var(--phs-muted)", fontSize: 13 }}>
+                {li.description || "—"}
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "120px 1fr 1fr", gap: 10, alignItems: "center" }}>
+                <div>
+                  <div style={{ fontSize: 12, color: "var(--phs-muted)", fontWeight: 800 }}>Qty</div>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    value={li.qty}
+                    disabled={isLocked}
+                    onChange={(e) => updateLineItem(li._id, { qty: Number(e.target.value) })}
+                    style={{
+                      width: "100%",
+                      padding: "10px 12px",
+                      borderRadius: 12,
+                      border: "1px solid var(--phs-border)",
+                      background: isLocked ? "rgba(0,0,0,0.03)" : "white",
+                    }}
+                  />
+                </div>
+
+                <div>
+                  <div style={{ fontSize: 12, color: "var(--phs-muted)", fontWeight: 800 }}>Unit price</div>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={li.unitPrice}
+                    disabled={isLocked}
+                    onChange={(e) => updateLineItem(li._id, { unitPrice: Number(e.target.value) })}
+                    style={{
+                      width: "100%",
+                      padding: "10px 12px",
+                      borderRadius: 12,
+                      border: "1px solid var(--phs-border)",
+                      background: isLocked ? "rgba(0,0,0,0.03)" : "white",
+                    }}
+                  />
+                </div>
+
+                <div style={{ textAlign: "right", fontWeight: 900 }}>
+                  Line: {money((Number(li.qty) || 0) * (Number(li.unitPrice) || 0))}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div style={{ color: "var(--phs-muted)", fontSize: 13 }}>
+          No items yet — add from the left.
+        </div>
+      ))}
+
+      {/* Totals */}
+      {estimate?.totals ? (
+        <div
+          style={{
+            marginTop: 10,
+            paddingTop: 10,
+            borderTop: "1px solid var(--phs-border)",
+            display: "grid",
+            gap: 6,
+            fontSize: 13,
+          }}
+        >
+          <div style={{ display: "flex", justifyContent: "space-between" }}>
+            <span style={{ color: "var(--phs-muted)", fontWeight: 800 }}>Subtotal</span>
+            <span style={{ fontWeight: 900 }}>{money(estimate.totals.subtotal)}</span>
+          </div>
+          <div style={{ display: "flex", justifyContent: "space-between" }}>
+            <span style={{ color: "var(--phs-muted)", fontWeight: 800 }}>Tax</span>
+            <span style={{ fontWeight: 900 }}>{money(estimate.totals.tax)}</span>
+          </div>
+          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14 }}>
+            <span style={{ fontWeight: 900 }}>Total</span>
+            <span style={{ fontWeight: 900 }}>{money(estimate.totals.total)}</span>
+          </div>
+        </div>
+      ) : null}
     </div>
   </div>
+
+  
 </div>
 
   );
