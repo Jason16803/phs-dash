@@ -1,0 +1,30 @@
+{
+  "name": "@sfg/dashboard-core",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "exports": {
+    ".": "./dist/index.js",
+    "./styles": "./src/styles/index.scss"
+  },
+  "scripts": {
+    "build": "tsc",
+    "build:lib": "vite build",
+    "dev": "tsc --watch"
+  },
+  "peerDependencies": {
+    "axios": "^1.6.7",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-icons": "^5.0.0",
+    "react-router-dom": "^6.22.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.7.0",
+    "typescript": "~5.6.2",
+    "vite": "^6.4.1"
+  }
+}
