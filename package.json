@@ -10,8 +10,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@sfg/dashboard-core": "*",
-    "@sfg/umbrella-service-web": "*",
+    "@sfg/dashboard-core": "npm:@Jason16803/dashboard-core@latest",
+    "@sfg/umbrella-service-web": "npm:@Jason16803/umbrella-service-web@latest",
     "axios": "^1.13.5",
     "cors": "^2.8.6",
     "react": "^18.3.1",
