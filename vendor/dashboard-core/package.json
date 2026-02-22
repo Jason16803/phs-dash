@@ -8,6 +8,7 @@
     ".": "./dist/index.js",
     "./styles": "./src/styles/index.scss"
   },
+  "sideEffects": ["**/*.scss","**/*.css"],
   "scripts": {
     "build": "tsc",
     "build:lib": "vite build",
