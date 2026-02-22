@@ -1,0 +1,114 @@
+/* ── PHS Brand Override Layer ───────────────────────────────────────────────
+   Loaded AFTER dashboard-core styles and tokens.
+   Targets dashboard-core's inline-style CSS variables to apply the blue
+   topbar, white logout button, and search bar from the previous phs-dash.
+─────────────────────────────────────────────────────────────────────────── */
+
+/* ── Topbar: blue background, white text ──────────────────────────────────── */
+header {
+  background: var(--color-primary) !important;
+  border-bottom: none !important;
+}
+
+/* Brand name in topbar */
+header span {
+  color: #fff !important;
+}
+
+/* Logo box in topbar */
+header > div > div {
+  background: rgba(255, 255, 255, 0.2) !important;
+}
+
+/* ── Nav dropdown buttons in topbar ───────────────────────────────────────── */
+header nav button {
+  color: rgba(255, 255, 255, 0.9) !important;
+  font-weight: 600 !important;
+}
+
+header nav button:hover {
+  background: rgba(255, 255, 255, 0.15) !important;
+  color: #fff !important;
+}
+
+/* ── Flat nav links in topbar ─────────────────────────────────────────────── */
+header nav a {
+  color: rgba(255, 255, 255, 0.9) !important;
+  font-weight: 500 !important;
+}
+
+header nav a:hover,
+header nav a.active {
+  background: rgba(255, 255, 255, 0.15) !important;
+  color: #fff !important;
+}
+
+/* ── User menu button in topbar ───────────────────────────────────────────── */
+header > div:last-child > div > button {
+  border-color: rgba(255, 255, 255, 0.35) !important;
+  color: #fff !important;
+}
+
+header > div:last-child > div > button span {
+  color: #fff !important;
+}
+
+header > div:last-child > div > button:hover {
+  background: rgba(255, 255, 255, 0.15) !important;
+}
+
+/* ── Dropdown menus (keep white, not blue) ────────────────────────────────── */
+header nav [role="menu"] {
+  background: #fff !important;
+  border: 1px solid var(--color-border) !important;
+}
+
+header nav [role="menu"] a {
+  color: var(--color-text-primary) !important;
+  background: transparent !important;
+}
+
+header nav [role="menu"] a:hover {
+  background: var(--color-surface) !important;
+  color: var(--color-primary) !important;
+}
+
+header nav [role="menu"] a[aria-current="page"],
+header nav [role="menu"] a.active {
+  background: var(--color-primary-light) !important;
+  color: var(--color-primary) !important;
+  font-weight: 600 !important;
+}
+
+/* ── Page content area ────────────────────────────────────────────────────── */
+main {
+  background: #f4f6f9 !important;
+}
+
+/* ── Cards ────────────────────────────────────────────────────────────────── */
+.card,
+[class*="card"] {
+  background: #fff !important;
+  border-radius: 12px !important;
+  border: 1px solid var(--color-border) !important;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.06) !important;
+}
+
+/* ── Primary buttons ──────────────────────────────────────────────────────── */
+button[class*="primary"],
+.btn-primary {
+  background: var(--color-primary) !important;
+  color: #fff !important;
+  border-radius: 8px !important;
+}
+
+/* ── Inputs ───────────────────────────────────────────────────────────────── */
+input, select, textarea {
+  border-radius: 8px !important;
+}
+
+input:focus, select:focus, textarea:focus {
+  border-color: var(--color-primary) !important;
+  outline: none !important;
+  box-shadow: 0 0 0 3px rgba(21, 65, 107, 0.12) !important;
+}

@@ -1,15 +1,9 @@
-// src/main.jsx
-import React from "react";
-import ReactDOM from "react-dom/client";
-import { BrowserRouter } from "react-router-dom";
-import App from "./App";
-import "./index.css";
-import "./styles/tokens.css"
+import "@sfg/dashboard-core/styles";  // dashboard-core SCSS (login, layout, etc.)
+import "./index.css";                  // Tailwind + phs custom classes
+import "./styles/phs.css";             // PHS overrides on top
 
-ReactDOM.createRoot(document.getElementById("root")).render(
-  <React.StrictMode>
-    <BrowserRouter>
-      <App />
-    </BrowserRouter>
-  </React.StrictMode>
-);
+import React from "react";
+import { createRoot } from "react-dom/client";
+import App from "./App.jsx";
+
+createRoot(document.getElementById("root")).render(<App />);
